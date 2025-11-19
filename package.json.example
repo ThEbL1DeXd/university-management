@@ -1,0 +1,32 @@
+{
+  "name": "university-management",
+  "version": "1.0.0",
+  "description": "Système de gestion universitaire moderne avec Next.js et MongoDB",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "generate-hash": "node scripts/generate-password-hash.js",
+    "seed": "node scripts/seed.js"
+  },
+  "keywords": [
+    "university",
+    "management",
+    "nextjs",
+    "mongodb",
+    "education",
+    "student-management",
+    "typescript"
+  ],
+  "author": "UniManage Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/university-management.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/university-management/issues"
+  },
+  "homepage": "https://github.com/yourusername/university-management#readme"
+}
