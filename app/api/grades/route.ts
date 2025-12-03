@@ -32,8 +32,29 @@ export async function GET(request: NextRequest) {
         );
       }
       query.student = relatedId;
+    } else if (userRole === 'teacher') {
+      // Teachers can see ONLY grades from their courses
+      const relatedId = (auth.session?.user as any)?.relatedId;
+      if (!relatedId) {
+        return NextResponse.json(
+          { success: false, error: 'Teacher ID not found' },
+          { status: 400 }
+        );
+      }
+      
+      const Course = (await import('@/models/Course')).default;
+      const teacherCourses = await Course.find({ teacher: relatedId }).select('_id');
+      const courseIds = teacherCourses.map(c => c._id);
+      
+      query.course = { $in: courseIds };
+      
+      // Allow additional filtering by student or course within their courses
+      if (studentId) query.student = studentId;
+      if (courseId && courseIds.some(id => id.toString() === courseId)) {
+        query.course = courseId;
+      }
     } else {
-      // Admin et Teacher peuvent filtrer par étudiant/cours
+      // Admin peut filtrer par étudiant/cours
       if (studentId) query.student = studentId;
       if (courseId) query.course = courseId;
     }

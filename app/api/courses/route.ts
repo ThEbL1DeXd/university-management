@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Course from '@/models/Course';
-import { requireAuth, requireAdmin } from '@/lib/auth-helpers';
+import { requireAuth, requireAdmin, getServerSession } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
@@ -14,26 +14,38 @@ export async function GET(request: NextRequest) {
 
   try {
     await dbConnect();
+    const session = await getServerSession();
     const userRole = auth.role;
     
     let query: any = {};
     
+    // If teacher, show only courses they teach
+    if (userRole === 'teacher') {
+      const relatedId = session?.user?.relatedId;
+      if (!relatedId) {
+        return NextResponse.json(
+          { success: false, error: 'Teacher ID not found' },
+          { status: 400 }
+        );
+      }
+      query.teacher = relatedId;
+    }
     // Si l'utilisateur est un étudiant, ne montrer que SES cours
-    if (userRole === 'student') {
-      const relatedId = (auth.session?.user as any)?.relatedId;
+    else if (userRole === 'student') {
+      const relatedId = session?.user?.relatedId;
       if (!relatedId) {
         return NextResponse.json(
           { success: false, error: 'Student ID not found' },
           { status: 400 }
         );
       }
-      query.enrolledStudents = relatedId; // Chercher les cours où l'étudiant est inscrit
+      query.enrolledStudents = relatedId;
     }
     
     const courses = await Course.find(query)
       .populate('department', 'name code')
       .populate('teacher', 'name email')
-      .populate('enrolledStudents', 'name matricule')
+      .populate('groups', 'name code')
       .sort({ name: 1 });
     
     return NextResponse.json({ success: true, data: courses });

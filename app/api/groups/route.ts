@@ -42,8 +42,25 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Récupérer tous les groupes
-    const groups = await StudentGroup.find()
+    // Filter groups based on user role
+    let query: any = {};
+    
+    if (session.user.role === 'teacher' && (session.user as any).relatedId) {
+      // Find courses taught by this teacher
+      const teacherCourses = await Course.find({ teacher: (session.user as any).relatedId })
+        .select('_id')
+        .lean();
+      
+      if (teacherCourses && teacherCourses.length > 0) {
+        const courseIds = teacherCourses.map(c => c._id);
+        query.courses = { $in: courseIds };
+      } else {
+        return NextResponse.json({ success: true, data: [] });
+      }
+    }
+
+    // Teachers see filtered groups, admins see all
+    const groups = await StudentGroup.find(query)
       .populate('department', 'name code')
       .populate('courses', 'name code')
       .populate('students', 'name matricule')

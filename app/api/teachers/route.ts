@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Teacher from '@/models/Teacher';
-import { requirePermission, requireAdmin } from '@/lib/auth-helpers';
+import { requirePermission, requireAdmin, getServerSession } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   // Seuls les utilisateurs avec permission canViewAllTeachers peuvent voir la liste
@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
 
   try {
     await dbConnect();
+    
+    // Both teachers and admins can see all teachers
     const teachers = await Teacher.find({})
       .populate('department', 'name code')
       .populate('courses', 'name code')
       .sort({ name: 1 });
+    
     return NextResponse.json({ success: true, data: teachers });
   } catch (error: any) {
     return NextResponse.json(

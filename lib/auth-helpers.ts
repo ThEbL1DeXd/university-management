@@ -1,13 +1,20 @@
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
+import { getServerSession as nextAuthGetServerSession } from 'next-auth';
 import { authOptions } from './auth';
 import { hasPermission, UserRole, Permission } from './permissions';
+
+/**
+ * Export getServerSession for direct use
+ */
+export async function getServerSession() {
+  return nextAuthGetServerSession(authOptions);
+}
 
 /**
  * Vérifier l'authentification et obtenir la session
  */
 export async function checkAuth(request: NextRequest) {
-  const session = await getServerSession(authOptions);
+  const session = await nextAuthGetServerSession(authOptions);
   
   if (!session || !session.user) {
     return {
