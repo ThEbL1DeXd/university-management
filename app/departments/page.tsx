@@ -10,10 +10,13 @@ import { usePermissions } from '@/hooks/usePermissions';
 import ProtectedAction from '@/components/ProtectedAction';
 
 export default function DepartmentsPage() {
-  const { permissions } = usePermissions();
+  const { permissions, can } = usePermissions();
   const [departments, setDepartments] = useState<any[]>([]);
   const [filteredDepartments, setFilteredDepartments] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Check if user can perform any action on departments
+  const canEditOrDelete = can('canEditDepartment') || can('canDeleteDepartment');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<any | null>(null);
 
@@ -29,9 +32,12 @@ export default function DepartmentsPage() {
   }, []);
 
   useEffect(() => {
+    const query = searchQuery.toLowerCase();
     const filtered = departments.filter((dept) =>
-      dept.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      dept.code.toLowerCase().includes(searchQuery.toLowerCase())
+      dept.name?.toLowerCase().includes(query) ||
+      dept.code?.toLowerCase().includes(query) ||
+      dept.head?.toLowerCase().includes(query) ||
+      dept.description?.toLowerCase().includes(query)
     );
     setFilteredDepartments(filtered);
   }, [searchQuery, departments]);
@@ -96,10 +102,10 @@ export default function DepartmentsPage() {
   };
 
   const columns = [
-    { header: 'Code', accessor: 'code' },
-    { header: 'Nom', accessor: 'name' },
-    { header: 'Chef de département', accessor: 'head' },
-    { header: 'Description', accessor: 'description' },
+    { header: 'Code', accessor: 'code', sortable: true },
+    { header: 'Nom', accessor: 'name', sortable: true },
+    { header: 'Chef de département', accessor: 'head', sortable: true },
+    { header: 'Description', accessor: 'description', sortable: false },
   ];
 
   return (
@@ -126,32 +132,34 @@ export default function DepartmentsPage() {
         <SearchBar
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Rechercher par nom ou code..."
+          placeholder="Rechercher par nom, code, chef, description..."
         />
 
         <DataTable
           data={filteredDepartments}
           columns={columns}
-          actions={(dept) => (
-            <div className="flex gap-2">
-              <ProtectedAction permission="canEditDepartment">
-                <button
-                  onClick={() => handleEdit(dept)}
-                  className="text-blue-600 hover:text-blue-900 dark:text-blue-400"
-                >
-                  <Edit size={18} />
-                </button>
-              </ProtectedAction>
-              <ProtectedAction permission="canDeleteDepartment">
-                <button
-                  onClick={() => handleDelete(dept)}
-                  className="text-red-600 hover:text-red-900 dark:text-red-400"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </ProtectedAction>
-            </div>
-          )}
+          {...(canEditOrDelete && {
+            actions: (dept) => (
+              <div className="flex gap-2">
+                <ProtectedAction permission="canEditDepartment">
+                  <button
+                    onClick={() => handleEdit(dept)}
+                    className="text-blue-600 hover:text-blue-900 dark:text-blue-400"
+                  >
+                    <Edit size={18} />
+                  </button>
+                </ProtectedAction>
+                <ProtectedAction permission="canDeleteDepartment">
+                  <button
+                    onClick={() => handleDelete(dept)}
+                    className="text-red-600 hover:text-red-900 dark:text-red-400"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </ProtectedAction>
+              </div>
+            )
+          })}
         />
 
         <Modal

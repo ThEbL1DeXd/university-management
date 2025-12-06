@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Course from '@/models/Course';
-import { requireAuth, requireAdmin, getServerSession } from '@/lib/auth-helpers';
+import Department from '@/models/Department';
+import Teacher from '@/models/Teacher';
+import StudentGroup from '@/models/StudentGroup';
+import { requireAuth, requireAdmin } from '@/lib/auth-helpers';
+import mongoose from 'mongoose';
+
+// Ensure models are registered for populate
+const _deps = [Department, Teacher, StudentGroup];
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
@@ -14,33 +21,38 @@ export async function GET(request: NextRequest) {
 
   try {
     await dbConnect();
-    const session = await getServerSession();
     const userRole = auth.role;
+    const relatedId = (auth.session?.user as any)?.relatedId;
+    
+    console.log('📚 Courses API - Role:', userRole, 'RelatedId:', relatedId);
     
     let query: any = {};
     
     // If teacher, show only courses they teach
     if (userRole === 'teacher') {
-      const relatedId = session?.user?.relatedId;
       if (!relatedId) {
+        console.log('❌ Teacher ID not found in session');
         return NextResponse.json(
           { success: false, error: 'Teacher ID not found' },
           { status: 400 }
         );
       }
-      query.teacher = relatedId;
+      query.teacher = relatedId; // Mongoose can handle string to ObjectId conversion
     }
     // Si l'utilisateur est un étudiant, ne montrer que SES cours
     else if (userRole === 'student') {
-      const relatedId = session?.user?.relatedId;
       if (!relatedId) {
+        console.log('❌ Student ID not found in session');
         return NextResponse.json(
           { success: false, error: 'Student ID not found' },
           { status: 400 }
         );
       }
-      query.enrolledStudents = relatedId;
+      // Use $in operator for array field matching
+      query.enrolledStudents = { $in: [relatedId] };
     }
+    
+    console.log('📚 Courses query:', JSON.stringify(query));
     
     const courses = await Course.find(query)
       .populate('department', 'name code')
@@ -48,8 +60,11 @@ export async function GET(request: NextRequest) {
       .populate('groups', 'name code')
       .sort({ name: 1 });
     
+    console.log('📚 Found', courses.length, 'courses');
+    
     return NextResponse.json({ success: true, data: courses });
   } catch (error: any) {
+    console.error('❌ Courses API Error:', error);
     return NextResponse.json(
       { success: false, error: error.message },
       { status: 400 }

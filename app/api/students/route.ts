@@ -3,7 +3,8 @@ import dbConnect from '@/lib/dbConnect';
 import Student from '@/models/Student';
 import Teacher from '@/models/Teacher';
 import StudentGroup from '@/models/StudentGroup';
-import { requirePermission, requireAdmin, getServerSession } from '@/lib/auth-helpers';
+import { requirePermission, requireAdmin } from '@/lib/auth-helpers';
+import mongoose from 'mongoose';
 
 export async function GET(request: NextRequest) {
   // Seuls les utilisateurs avec permission canViewAllStudents peuvent voir la liste
@@ -33,7 +34,7 @@ export async function GET(request: NextRequest) {
       
       // Find all courses taught by this teacher
       const Course = (await import('@/models/Course')).default;
-      const teacherCourses = await Course.find({ teacher: relatedId }).select('_id');
+      const teacherCourses = await Course.find({ teacher: new mongoose.Types.ObjectId(relatedId) }).select('_id');
       const courseIds = teacherCourses.map(c => c._id);
       
       // Find students enrolled in these courses

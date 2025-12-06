@@ -100,31 +100,31 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission> = {
     canCreateStudent: false,
     canEditStudent: false,
     canDeleteStudent: false,
-    canViewAllStudents: true, // Peut voir les étudiants
+    canViewAllStudents: true, // Peut voir SES étudiants (filtrés par l'API)
     
     // Teachers
     canCreateTeacher: false,
     canEditTeacher: false,
     canDeleteTeacher: false,
-    canViewAllTeachers: true, // Peut voir les collègues
+    canViewAllTeachers: false, // ❌ Ne peut PAS voir les autres enseignants
     
     // Courses
     canCreateCourse: false,
     canEditCourse: false, // Ne peut pas modifier les cours (seulement admin)
     canDeleteCourse: false,
-    canViewAllCourses: true,
+    canViewAllCourses: true, // Peut voir SES cours (filtrés par l'API)
     
     // Groups
     canCreateGroup: false,
     canEditGroup: false,
     canDeleteGroup: false,
-    canViewAllGroups: true, // Peut voir les groupes (lecture seule)
+    canViewAllGroups: true, // Peut voir SES groupes (filtrés par l'API)
     
     // Departments
     canCreateDepartment: false,
     canEditDepartment: false,
     canDeleteDepartment: false,
-    canViewAllDepartments: true,
+    canViewAllDepartments: false, // ❌ Ne peut PAS voir les départements
     
     // Grades
     canCreateGrade: true, // Peut créer des notes pour ses étudiants
@@ -219,9 +219,9 @@ export function isStudent(role: UserRole): boolean {
  * Routes accessibles par rôle
  */
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
-  admin: ['/', '/students', '/teachers', '/courses', '/groups', '/departments', '/grades'],
-  teacher: ['/', '/students', '/teachers', '/courses', '/groups', '/departments', '/grades'],
-  student: ['/', '/courses', '/grades'], // Accès limité
+  admin: ['/', '/students', '/teachers', '/courses', '/groups', '/departments', '/grades', '/schedule'],
+  teacher: ['/', '/students', '/courses', '/groups', '/grades', '/schedule'], // Pas d'accès à /teachers ni /departments
+  student: ['/', '/courses', '/grades', '/schedule'], // Accès limité
 };
 
 /**

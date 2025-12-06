@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   UsersRound,
-  Sparkles
+  Sparkles,
+  Calendar
 } from 'lucide-react';
 import { useState } from 'react';
 import { canAccessRoute, UserRole } from '@/lib/permissions';
@@ -27,6 +28,7 @@ const menuItems = [
   { name: 'Groupes', href: '/groups', icon: UsersRound },
   { name: 'Départements', href: '/departments', icon: Building2 },
   { name: 'Notes', href: '/grades', icon: ClipboardList },
+  { name: 'Emploi du temps', href: '/schedule', icon: Calendar },
 ];
 
 export default function Sidebar() {

@@ -1,0 +1,1139 @@
+================================================================================
+          CAHIER DES CHARGES - PARTIE CONCEPTION
+          Système de Gestion Universitaire (UniManage)
+================================================================================
+
+Projet : UniManage - University Management System
+Version : 1.0
+Date : 6 Décembre 2025
+Technologies : Next.js 15, TypeScript, MongoDB, NextAuth.js
+
+================================================================================
+                        TABLE DES MATIÈRES
+================================================================================
+
+1. DIAGRAMME DE CLASSES (Class Diagram)
+2. DIAGRAMME DE CAS D'UTILISATION (Use Case Diagram)
+3. DIAGRAMMES DE SÉQUENCE (Sequence Diagrams)
+   3.1. Authentification
+   3.2. Gestion des Étudiants
+   3.3. Gestion des Notes
+   3.4. Gestion des Cours
+   3.5. Gestion des Emplois du Temps
+4. DIAGRAMME D'ACTIVITÉ
+5. DIAGRAMME DE DÉPLOIEMENT
+
+================================================================================
+              1. DIAGRAMME DE CLASSES (CLASS DIAGRAM)
+================================================================================
+
+@startuml ClassDiagram
+
+' ==================== ENTITÉS PRINCIPALES ====================
+
+class User {
+  - _id: ObjectId
+  - name: String
+  - email: String {unique}
+  - password: String {hashed}
+  - role: Enum(admin, teacher, student)
+  - relatedId: ObjectId
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + authenticate(): Boolean
+  + changePassword(): void
+  + hasPermission(permission: String): Boolean
+}
+
+class Student {
+  - _id: ObjectId
+  - name: String
+  - matricule: String {unique}
+  - email: String {unique}
+  - phone: String
+  - department: ObjectId
+  - group: ObjectId
+  - enrolledCourses: ObjectId[]
+  - dateOfBirth: Date
+  - address: String
+  - academicYear: String
+  - currentYear: Integer (1-5)
+  - status: Enum(active, inactive, graduated, suspended)
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + enrollInCourse(courseId: ObjectId): void
+  + unenrollFromCourse(courseId: ObjectId): void
+  + getGrades(): Grade[]
+  + getSchedule(): Schedule[]
+  + updateStatus(newStatus: String): void
+}
+
+class Teacher {
+  - _id: ObjectId
+  - name: String
+  - email: String {unique}
+  - phone: String
+  - department: ObjectId
+  - specialization: String
+  - courses: ObjectId[]
+  - canEditGrades: Boolean
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + assignCourse(courseId: ObjectId): void
+  + removeFromCourse(courseId: ObjectId): void
+  + submitGrade(grade: Grade): void
+  + getStudentList(courseId: ObjectId): Student[]
+  + getSchedule(): Schedule[]
+}
+
+class Department {
+  - _id: ObjectId
+  - name: String {unique}
+  - code: String {unique}
+  - description: String
+  - head: String
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + getStudents(): Student[]
+  + getTeachers(): Teacher[]
+  + getCourses(): Course[]
+  + getStatistics(): Object
+}
+
+class Course {
+  - _id: ObjectId
+  - name: String
+  - code: String {unique}
+  - description: String
+  - credits: Integer (1-10)
+  - department: ObjectId
+  - teacher: ObjectId
+  - groups: ObjectId[]
+  - semester: Integer (1-2)
+  - year: Integer
+  - enrolledStudents: ObjectId[]
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + enrollStudent(studentId: ObjectId): void
+  + unenrollStudent(studentId: ObjectId): void
+  + assignTeacher(teacherId: ObjectId): void
+  + getEnrolledStudents(): Student[]
+  + getSchedule(): Schedule[]
+}
+
+class Grade {
+  - _id: ObjectId
+  - student: ObjectId
+  - course: ObjectId
+  - grade: Number (0-100)
+  - examType: Enum(Midterm, Final, Quiz, Assignment)
+  - comments: String
+  - submittedBy: ObjectId
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + calculateAverage(): Number
+  + getLetterGrade(): String
+  + validate(): Boolean
+}
+
+class StudentGroup {
+  - _id: ObjectId
+  - name: String
+  - code: String {unique}
+  - department: ObjectId
+  - academicYear: String
+  - level: String
+  - courses: ObjectId[]
+  - students: ObjectId[]
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + addStudent(studentId: ObjectId): void
+  + removeStudent(studentId: ObjectId): void
+  + assignCourse(courseId: ObjectId): void
+  + getSchedule(): Schedule[]
+}
+
+class Schedule {
+  - _id: ObjectId
+  - course: ObjectId
+  - teacher: ObjectId
+  - group: ObjectId
+  - dayOfWeek: Enum(monday-saturday)
+  - startTime: String (HH:MM)
+  - endTime: String (HH:MM)
+  - room: String
+  - type: Enum(cours, td, tp, examen)
+  - semester: Integer (1-2)
+  - academicYear: String
+  - isRecurring: Boolean
+  - specificDate: Date
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + checkConflict(schedule: Schedule): Boolean
+  + isAvailable(date: Date): Boolean
+  + getAttendees(): Student[]
+}
+
+class Notification {
+  - _id: ObjectId
+  - recipient: ObjectId
+  - recipientType: Enum(student, teacher, admin)
+  - title: String
+  - message: String
+  - type: Enum(grade, schedule, announcement, reminder, alert)
+  - priority: Enum(low, medium, high)
+  - isRead: Boolean
+  - readAt: Date
+  - link: String
+  - metadata: Object
+  - expiresAt: Date
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + markAsRead(): void
+  + send(): void
+  + isExpired(): Boolean
+}
+
+' ==================== RELATIONS ====================
+
+User "1" -- "0..1" Student : relatedTo >
+User "1" -- "0..1" Teacher : relatedTo >
+
+Department "1" -- "0..*" Student : contains >
+Department "1" -- "0..*" Teacher : employs >
+Department "1" -- "0..*" Course : offers >
+Department "1" -- "0..*" StudentGroup : manages >
+
+Student "0..*" -- "0..*" Course : enrolledIn >
+Student "1" -- "0..*" Grade : receives >
+Student "0..*" -- "0..1" StudentGroup : belongsTo >
+
+Teacher "1" -- "0..*" Course : teaches >
+Teacher "1" -- "0..*" Grade : submits >
+Teacher "1" -- "0..*" Schedule : assignedTo >
+
+Course "1" -- "0..*" Grade : evaluatedBy >
+Course "1" -- "0..*" Schedule : scheduledIn >
+Course "0..*" -- "0..*" StudentGroup : assignedTo >
+
+StudentGroup "1" -- "0..*" Schedule : hasSchedule >
+
+Notification "0..*" -- "1" Student : notifies >
+Notification "0..*" -- "1" Teacher : notifies >
+
+@enduml
+
+================================================================================
+          2. DIAGRAMME DE CAS D'UTILISATION (USE CASE DIAGRAM)
+================================================================================
+
+@startuml UseCaseDiagram
+
+left to right direction
+
+' ==================== ACTEURS ====================
+
+actor Administrateur as admin
+actor Enseignant as teacher
+actor Étudiant as student
+actor Système as system
+
+' ==================== PACKAGES ====================
+
+package "Gestion de l'Authentification" {
+  usecase (Se connecter) as UC_Login
+  usecase (Se déconnecter) as UC_Logout
+  usecase (Changer mot de passe) as UC_ChangePwd
+  usecase (Gérer session) as UC_ManageSession
+}
+
+package "Gestion des Utilisateurs" {
+  usecase (Créer utilisateur) as UC_CreateUser
+  usecase (Modifier utilisateur) as UC_UpdateUser
+  usecase (Supprimer utilisateur) as UC_DeleteUser
+  usecase (Consulter profil) as UC_ViewProfile
+  usecase (Lister utilisateurs) as UC_ListUsers
+}
+
+package "Gestion des Étudiants" {
+  usecase (Créer étudiant) as UC_CreateStudent
+  usecase (Modifier étudiant) as UC_UpdateStudent
+  usecase (Supprimer étudiant) as UC_DeleteStudent
+  usecase (Consulter étudiants) as UC_ViewStudents
+  usecase (Assigner à un groupe) as UC_AssignGroup
+  usecase (Inscrire à un cours) as UC_EnrollCourse
+}
+
+package "Gestion des Enseignants" {
+  usecase (Créer enseignant) as UC_CreateTeacher
+  usecase (Modifier enseignant) as UC_UpdateTeacher
+  usecase (Supprimer enseignant) as UC_DeleteTeacher
+  usecase (Consulter enseignants) as UC_ViewTeachers
+  usecase (Assigner cours) as UC_AssignCourse
+}
+
+package "Gestion des Cours" {
+  usecase (Créer cours) as UC_CreateCourse
+  usecase (Modifier cours) as UC_UpdateCourse
+  usecase (Supprimer cours) as UC_DeleteCourse
+  usecase (Consulter cours) as UC_ViewCourses
+  usecase (Gérer inscriptions) as UC_ManageEnrollments
+}
+
+package "Gestion des Départements" {
+  usecase (Créer département) as UC_CreateDept
+  usecase (Modifier département) as UC_UpdateDept
+  usecase (Supprimer département) as UC_DeleteDept
+  usecase (Consulter départements) as UC_ViewDepts
+}
+
+package "Gestion des Notes" {
+  usecase (Ajouter note) as UC_AddGrade
+  usecase (Modifier note) as UC_UpdateGrade
+  usecase (Supprimer note) as UC_DeleteGrade
+  usecase (Consulter notes) as UC_ViewGrades
+  usecase (Calculer moyenne) as UC_CalculateAvg
+  usecase (Exporter relevé) as UC_ExportGrades
+}
+
+package "Gestion des Emplois du Temps" {
+  usecase (Créer séance) as UC_CreateSchedule
+  usecase (Modifier séance) as UC_UpdateSchedule
+  usecase (Supprimer séance) as UC_DeleteSchedule
+  usecase (Consulter emploi du temps) as UC_ViewSchedule
+  usecase (Vérifier conflits) as UC_CheckConflicts
+}
+
+package "Gestion des Groupes" {
+  usecase (Créer groupe) as UC_CreateGroup
+  usecase (Modifier groupe) as UC_UpdateGroup
+  usecase (Supprimer groupe) as UC_DeleteGroup
+  usecase (Consulter groupes) as UC_ViewGroups
+  usecase (Affecter étudiants) as UC_AssignStudents
+}
+
+package "Statistiques et Rapports" {
+  usecase (Consulter dashboard) as UC_ViewDashboard
+  usecase (Générer statistiques) as UC_GenerateStats
+  usecase (Exporter données) as UC_ExportData
+  usecase (Visualiser graphiques) as UC_ViewCharts
+}
+
+package "Notifications" {
+  usecase (Envoyer notification) as UC_SendNotif
+  usecase (Consulter notifications) as UC_ViewNotifs
+  usecase (Marquer comme lu) as UC_MarkRead
+}
+
+' ==================== RELATIONS ADMINISTRATEUR ====================
+
+admin --> UC_Login
+admin --> UC_Logout
+admin --> UC_ChangePwd
+
+admin --> UC_CreateUser
+admin --> UC_UpdateUser
+admin --> UC_DeleteUser
+admin --> UC_ListUsers
+
+admin --> UC_CreateStudent
+admin --> UC_UpdateStudent
+admin --> UC_DeleteStudent
+admin --> UC_ViewStudents
+admin --> UC_AssignGroup
+admin --> UC_EnrollCourse
+
+admin --> UC_CreateTeacher
+admin --> UC_UpdateTeacher
+admin --> UC_DeleteTeacher
+admin --> UC_ViewTeachers
+admin --> UC_AssignCourse
+
+admin --> UC_CreateCourse
+admin --> UC_UpdateCourse
+admin --> UC_DeleteCourse
+admin --> UC_ViewCourses
+admin --> UC_ManageEnrollments
+
+admin --> UC_CreateDept
+admin --> UC_UpdateDept
+admin --> UC_DeleteDept
+admin --> UC_ViewDepts
+
+admin --> UC_AddGrade
+admin --> UC_UpdateGrade
+admin --> UC_DeleteGrade
+admin --> UC_ViewGrades
+
+admin --> UC_CreateSchedule
+admin --> UC_UpdateSchedule
+admin --> UC_DeleteSchedule
+admin --> UC_ViewSchedule
+
+admin --> UC_CreateGroup
+admin --> UC_UpdateGroup
+admin --> UC_DeleteGroup
+admin --> UC_ViewGroups
+admin --> UC_AssignStudents
+
+admin --> UC_ViewDashboard
+admin --> UC_GenerateStats
+admin --> UC_ExportData
+
+admin --> UC_SendNotif
+
+' ==================== RELATIONS ENSEIGNANT ====================
+
+teacher --> UC_Login
+teacher --> UC_Logout
+teacher --> UC_ChangePwd
+teacher --> UC_ViewProfile
+
+teacher --> UC_ViewStudents
+teacher --> UC_ViewTeachers
+teacher --> UC_ViewCourses
+teacher --> UC_ViewDepts
+
+teacher --> UC_AddGrade
+teacher --> UC_UpdateGrade
+teacher --> UC_DeleteGrade
+teacher --> UC_ViewGrades
+teacher --> UC_CalculateAvg
+
+teacher --> UC_ViewSchedule
+teacher --> UC_ViewGroups
+
+teacher --> UC_ViewNotifs
+teacher --> UC_MarkRead
+
+' ==================== RELATIONS ÉTUDIANT ====================
+
+student --> UC_Login
+student --> UC_Logout
+student --> UC_ChangePwd
+student --> UC_ViewProfile
+
+student --> UC_ViewCourses
+student --> UC_ViewGrades
+student --> UC_ViewSchedule
+
+student --> UC_ViewNotifs
+student --> UC_MarkRead
+
+' ==================== RELATIONS SYSTÈME ====================
+
+UC_AddGrade ..> UC_SendNotif : <<include>>
+UC_UpdateSchedule ..> UC_CheckConflicts : <<include>>
+UC_CreateSchedule ..> UC_CheckConflicts : <<include>>
+UC_ViewGrades ..> UC_CalculateAvg : <<extend>>
+UC_ViewDashboard ..> UC_GenerateStats : <<include>>
+UC_ViewDashboard ..> UC_ViewCharts : <<include>>
+
+system --> UC_ManageSession
+system --> UC_CheckConflicts
+system --> UC_CalculateAvg
+system --> UC_SendNotif
+
+@enduml
+
+================================================================================
+              3. DIAGRAMMES DE SÉQUENCE (SEQUENCE DIAGRAMS)
+================================================================================
+
+-------------------------------------------------------------------------------
+3.1. SÉQUENCE D'AUTHENTIFICATION
+-------------------------------------------------------------------------------
+
+@startuml SequenceAuthentification
+
+actor Utilisateur
+participant "Page Login" as Login
+participant "NextAuth" as Auth
+participant "API Auth" as API
+participant "MongoDB" as DB
+participant "Session" as Session
+
+Utilisateur -> Login : Accède à /login
+activate Login
+
+Utilisateur -> Login : Saisit email et mot de passe
+Login -> Auth : signIn(credentials)
+activate Auth
+
+Auth -> API : POST /api/auth/signin
+activate API
+
+API -> DB : findOne({email})
+activate DB
+DB --> API : user
+deactivate DB
+
+API -> API : comparePassword(password, hash)
+
+alt Authentification réussie
+    API -> API : Génère JWT token
+    API -> Session : Crée session
+    activate Session
+    Session --> API : session
+    deactivate Session
+    
+    API --> Auth : {success: true, token, user}
+    Auth --> Login : {status: 200, user, role}
+    
+    alt Role = Admin
+        Login -> Utilisateur : Redirige vers /dashboard (admin)
+    else Role = Teacher
+        Login -> Utilisateur : Redirige vers /dashboard (teacher)
+    else Role = Student
+        Login -> Utilisateur : Redirige vers /dashboard (student)
+    end
+    
+else Authentification échouée
+    API --> Auth : {success: false, error}
+    Auth --> Login : {status: 401, error}
+    Login -> Utilisateur : Affiche erreur
+end
+
+deactivate API
+deactivate Auth
+deactivate Login
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.2. SÉQUENCE DE CRÉATION D'UN ÉTUDIANT
+-------------------------------------------------------------------------------
+
+@startuml SequenceCreationEtudiant
+
+actor Administrateur
+participant "Page Students" as UI
+participant "Modal Form" as Modal
+participant "API Students" as API
+participant "MongoDB" as DB
+participant "User API" as UserAPI
+participant "Notification" as Notif
+
+Administrateur -> UI : Clique "Ajouter Étudiant"
+activate UI
+
+UI -> Modal : Ouvre formulaire
+activate Modal
+
+Administrateur -> Modal : Remplit informations\n(nom, matricule, email, etc.)
+Administrateur -> Modal : Sélectionne département
+Administrateur -> Modal : Clique "Créer"
+
+Modal -> Modal : Valide formulaire
+activate Modal
+
+alt Validation réussie
+    Modal -> API : POST /api/students\n{name, matricule, email, department, ...}
+    activate API
+    
+    API -> API : Vérifie authentification
+    API -> API : Vérifie permissions (Admin only)
+    
+    API -> DB : Vérifie matricule unique
+    activate DB
+    DB --> API : result
+    deactivate DB
+    
+    alt Matricule existe déjà
+        API --> Modal : {error: "Matricule exists"}
+        Modal -> Administrateur : Affiche erreur
+    else Matricule disponible
+        API -> DB : create(studentData)
+        activate DB
+        DB --> API : newStudent
+        deactivate DB
+        
+        API -> UserAPI : POST /api/users\n{email, role: "student", relatedId}
+        activate UserAPI
+        UserAPI -> DB : create(userData)
+        activate DB
+        DB --> UserAPI : newUser
+        deactivate DB
+        UserAPI --> API : user
+        deactivate UserAPI
+        
+        API -> Notif : Envoie email bienvenue
+        activate Notif
+        Notif --> API : sent
+        deactivate Notif
+        
+        API --> Modal : {success: true, student: newStudent}
+        Modal -> UI : Ferme modal
+        UI -> UI : Rafraîchit liste
+        UI -> Administrateur : Affiche succès
+    end
+else Validation échouée
+    Modal -> Administrateur : Affiche erreurs de validation
+end
+
+deactivate Modal
+deactivate API
+deactivate Modal
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.3. SÉQUENCE D'AJOUT D'UNE NOTE
+-------------------------------------------------------------------------------
+
+@startuml SequenceAjoutNote
+
+actor Enseignant
+participant "Page Grades" as UI
+participant "Modal Form" as Modal
+participant "API Grades" as API
+participant "MongoDB" as DB
+participant "Notification" as Notif
+participant "Étudiant" as Student
+
+Enseignant -> UI : Clique "Ajouter Note"
+activate UI
+
+UI -> Modal : Ouvre formulaire
+activate Modal
+
+Enseignant -> Modal : Sélectionne étudiant
+Modal -> API : GET /api/students
+activate API
+API -> DB : find({department})
+activate DB
+DB --> API : students[]
+deactivate DB
+API --> Modal : students
+deactivate API
+
+Enseignant -> Modal : Sélectionne cours
+Modal -> API : GET /api/courses
+activate API
+API -> DB : find({teacher: teacherId})
+activate DB
+DB --> API : courses[]
+deactivate DB
+API --> Modal : courses
+deactivate API
+
+Enseignant -> Modal : Saisit note (0-100)
+Enseignant -> Modal : Sélectionne type (Midterm/Final/Quiz)
+Enseignant -> Modal : Ajoute commentaire (optionnel)
+Enseignant -> Modal : Clique "Soumettre"
+
+Modal -> Modal : Valide formulaire
+
+alt Validation réussie
+    Modal -> API : POST /api/grades\n{student, course, grade, examType, comments}
+    activate API
+    
+    API -> API : Vérifie authentification
+    API -> API : Vérifie permissions\n(Admin ou Teacher)
+    
+    API -> DB : Vérifie doublon\n{student, course, examType}
+    activate DB
+    DB --> API : existingGrade
+    deactivate DB
+    
+    alt Note existe déjà
+        API --> Modal : {error: "Grade already exists"}
+        Modal -> Enseignant : Affiche erreur
+    else Pas de doublon
+        API -> DB : create(gradeData)
+        activate DB
+        DB --> API : newGrade
+        deactivate DB
+        
+        API -> Notif : Crée notification
+        activate Notif
+        Notif -> DB : create(notification)
+        activate DB
+        DB --> Notif : notification
+        deactivate DB
+        Notif -> Student : Envoie notification\n"Nouvelle note disponible"
+        deactivate Notif
+        
+        API --> Modal : {success: true, grade: newGrade}
+        Modal -> UI : Ferme modal
+        UI -> UI : Rafraîchit liste
+        UI -> Enseignant : Affiche succès
+    end
+else Validation échouée
+    Modal -> Enseignant : Affiche erreurs
+end
+
+deactivate API
+deactivate Modal
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.4. SÉQUENCE DE CONSULTATION DES COURS (ÉTUDIANT)
+-------------------------------------------------------------------------------
+
+@startuml SequenceConsultationCoursEtudiant
+
+actor Étudiant
+participant "Page Courses" as UI
+participant "API Courses" as API
+participant "MongoDB" as DB
+participant "Session" as Session
+
+Étudiant -> UI : Accède à /courses
+activate UI
+
+UI -> Session : getSession()
+activate Session
+Session --> UI : {user: {role: "student", relatedId}}
+deactivate Session
+
+UI -> API : GET /api/courses
+activate API
+
+API -> API : Vérifie authentification
+API -> Session : getSession()
+activate Session
+Session --> API : {user: {role, relatedId}}
+deactivate Session
+
+alt Role = Student
+    API -> API : Filtre: enrolledStudents = relatedId
+    API -> DB : find({enrolledStudents: studentId})\n.populate('teacher department')
+else Role = Teacher
+    API -> DB : find({teacher: teacherId})\n.populate('teacher department')
+else Role = Admin
+    API -> DB : find({})\n.populate('teacher department')
+end
+
+activate DB
+DB --> API : courses[]
+deactivate DB
+
+API -> API : Filtre données sensibles\n(pour student: masque enrolledStudents)
+API --> UI : {success: true, courses: filteredCourses}
+
+UI -> UI : Affiche liste des cours
+UI -> UI : Masque boutons\n(Ajouter/Modifier/Supprimer)
+UI -> Étudiant : Affiche interface lecture seule
+
+deactivate API
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.5. SÉQUENCE DE CRÉATION D'UN EMPLOI DU TEMPS
+-------------------------------------------------------------------------------
+
+@startuml SequenceCreationEmploiDuTemps
+
+actor Administrateur
+participant "Page Schedule" as UI
+participant "Modal Form" as Modal
+participant "API Schedule" as API
+participant "MongoDB" as DB
+participant "Conflict Checker" as Checker
+participant "Notification" as Notif
+
+Administrateur -> UI : Clique "Nouvelle Séance"
+activate UI
+
+UI -> Modal : Ouvre formulaire
+activate Modal
+
+Administrateur -> Modal : Sélectionne cours
+Administrateur -> Modal : Sélectionne enseignant
+Administrateur -> Modal : Sélectionne groupe
+Administrateur -> Modal : Sélectionne jour (Lundi-Samedi)
+Administrateur -> Modal : Définit horaire (début-fin)
+Administrateur -> Modal : Saisit salle
+Administrateur -> Modal : Sélectionne type (Cours/TD/TP)
+Administrateur -> Modal : Clique "Créer"
+
+Modal -> Modal : Valide formulaire
+Modal -> Modal : Vérifie cohérence horaires\n(début < fin)
+
+alt Validation réussie
+    Modal -> API : POST /api/schedules\n{course, teacher, group, dayOfWeek, ...}
+    activate API
+    
+    API -> API : Vérifie authentification
+    API -> API : Vérifie permissions (Admin only)
+    
+    API -> Checker : checkConflicts(scheduleData)
+    activate Checker
+    
+    Checker -> DB : Vérifie conflit enseignant\n(même jour/heure)
+    activate DB
+    DB --> Checker : teacherConflicts[]
+    deactivate DB
+    
+    Checker -> DB : Vérifie conflit groupe\n(même jour/heure)
+    activate DB
+    DB --> Checker : groupConflicts[]
+    deactivate DB
+    
+    Checker -> DB : Vérifie conflit salle\n(même jour/heure)
+    activate DB
+    DB --> Checker : roomConflicts[]
+    deactivate DB
+    
+    Checker --> API : conflicts[]
+    deactivate Checker
+    
+    alt Conflits détectés
+        API --> Modal : {error: "Conflicts detected", conflicts}
+        Modal -> Administrateur : Affiche liste conflits
+    else Pas de conflit
+        API -> DB : create(scheduleData)
+        activate DB
+        DB --> API : newSchedule
+        deactivate DB
+        
+        API -> Notif : Notifie groupe
+        activate Notif
+        Notif -> DB : getStudents(groupId)
+        activate DB
+        DB --> Notif : students[]
+        deactivate DB
+        
+        loop Pour chaque étudiant
+            Notif -> DB : create(notification)
+            activate DB
+            DB --> Notif : notif
+            deactivate DB
+        end
+        deactivate Notif
+        
+        API --> Modal : {success: true, schedule: newSchedule}
+        Modal -> UI : Ferme modal
+        UI -> UI : Rafraîchit emploi du temps
+        UI -> Administrateur : Affiche succès
+    end
+else Validation échouée
+    Modal -> Administrateur : Affiche erreurs
+end
+
+deactivate API
+deactivate Modal
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.6. SÉQUENCE DE CONSULTATION DU DASHBOARD
+-------------------------------------------------------------------------------
+
+@startuml SequenceConsultationDashboard
+
+actor Utilisateur
+participant "Page Dashboard" as UI
+participant "API Stats" as API
+participant "MongoDB" as DB
+participant "Session" as Session
+participant "Charts" as Charts
+
+Utilisateur -> UI : Accède à /
+activate UI
+
+UI -> Session : getSession()
+activate Session
+Session --> UI : {user: {role, relatedId}}
+deactivate Session
+
+UI -> API : GET /api/stats
+activate API
+
+API -> API : Vérifie authentification
+API -> Session : getSession()
+activate Session
+Session --> API : {user: {role, relatedId}}
+deactivate Session
+
+alt Role = Admin
+    API -> DB : count(Student)
+    activate DB
+    DB --> API : totalStudents
+    
+    API -> DB : count(Teacher)
+    DB --> API : totalTeachers
+    
+    API -> DB : count(Course)
+    DB --> API : totalCourses
+    
+    API -> DB : count(Department)
+    DB --> API : totalDepartments
+    
+    API -> DB : aggregate(Grade)\n[{$group: {_id: null, avg: {$avg: "$grade"}}}]
+    DB --> API : averageGrade
+    
+    API -> DB : aggregate(Student)\n[{$group: {_id: "$department", count: {$sum: 1}}}]
+    DB --> API : studentsByDepartment[]
+    deactivate DB
+    
+    API --> UI : {globalStats: {...}, charts: {...}}
+    
+else Role = Teacher
+    API -> DB : find(Student, {enrolledCourses: {$in: teacherCourses}})
+    activate DB
+    DB --> API : myStudents[]
+    
+    API -> DB : find(Course, {teacher: teacherId})
+    DB --> API : myCourses[]
+    
+    API -> DB : find(Grade, {course: {$in: courseIds}})
+    DB --> API : myGrades[]
+    deactivate DB
+    
+    API --> UI : {teacherStats: {...}}
+    
+else Role = Student
+    API -> DB : find(Grade, {student: studentId})
+    activate DB
+    DB --> API : myGrades[]
+    
+    API -> DB : find(Course, {enrolledStudents: studentId})
+    DB --> API : myCourses[]
+    
+    API -> DB : find(Schedule, {group: studentGroupId})
+    DB --> API : mySchedule[]
+    deactivate DB
+    
+    API -> API : calculateAverage(myGrades)
+    API --> UI : {studentStats: {...}}
+end
+
+deactivate API
+
+UI -> Charts : Génère graphiques
+activate Charts
+Charts --> UI : renderedCharts
+deactivate Charts
+
+UI -> Utilisateur : Affiche dashboard personnalisé
+
+deactivate UI
+
+@enduml
+
+================================================================================
+                 4. DIAGRAMME D'ACTIVITÉ
+================================================================================
+
+@startuml ActivityDiagram
+
+title Processus de Gestion d'Inscription d'un Étudiant à un Cours
+
+start
+
+:Administrateur/Enseignant se connecte;
+
+:Accède à la page des étudiants;
+
+:Sélectionne un étudiant;
+
+:Clique sur "Inscrire à un cours";
+
+:Système affiche liste des cours disponibles;
+
+if (Cours disponible?) then (oui)
+    :Sélectionne un cours;
+    
+    :Système vérifie prérequis;
+    
+    if (Prérequis satisfaits?) then (oui)
+        :Système vérifie capacité du cours;
+        
+        if (Places disponibles?) then (oui)
+            :Système crée l'inscription;
+            
+            fork
+                :Met à jour enrolledCourses\nde l'étudiant;
+            fork again
+                :Met à jour enrolledStudents\ndu cours;
+            fork again
+                :Crée notification pour l'étudiant;
+            fork again
+                :Met à jour statistiques;
+            end fork
+            
+            :Affiche message de succès;
+            
+            :Envoie email de confirmation\nà l'étudiant;
+            
+            stop
+            
+        else (non)
+            :Affiche erreur\n"Cours complet";
+            stop
+        endif
+        
+    else (non)
+        :Affiche erreur\n"Prérequis non satisfaits";
+        stop
+    endif
+    
+else (non)
+    :Affiche message\n"Aucun cours disponible";
+    stop
+endif
+
+@enduml
+
+================================================================================
+                 5. DIAGRAMME DE DÉPLOIEMENT
+================================================================================
+
+@startuml DeploymentDiagram
+
+node "Client Browser" as client {
+    component "Next.js Frontend" as frontend {
+        [React Components]
+        [Pages Router]
+        [Client State]
+    }
+}
+
+node "Vercel Platform" as vercel {
+    node "Edge Network" as edge {
+        [CDN]
+        [Static Assets]
+    }
+    
+    node "Serverless Functions" as functions {
+        component "Next.js Backend" as backend {
+            [API Routes]
+            [Server Components]
+            [NextAuth]
+            [Middleware]
+        }
+    }
+}
+
+node "MongoDB Atlas Cluster" as mongodb {
+    database "Primary Node" as primary {
+        [university-management DB]
+    }
+    
+    database "Secondary Node 1" as secondary1 {
+        [Replica]
+    }
+    
+    database "Secondary Node 2" as secondary2 {
+        [Replica]
+    }
+}
+
+node "External Services" as external {
+    [Email Service (SMTP)]
+    [Authentication Provider]
+    [Storage Service]
+}
+
+' Relations
+client -down-> edge : HTTPS
+client -down-> functions : API Calls (HTTPS)
+edge -down-> functions : Route Requests
+
+functions -down-> mongodb : MongoDB Protocol\n(SSL/TLS)
+functions -right-> external : API Calls
+
+primary .down.> secondary1 : Replication
+primary .down.> secondary2 : Replication
+
+note right of mongodb
+  - Cluster M10 or higher
+  - Auto-scaling enabled
+  - Automated backups
+  - Multi-region deployment
+end note
+
+note right of vercel
+  - Auto-scaling
+  - Zero-downtime deployment
+  - Edge caching
+  - Environment variables
+end note
+
+note left of client
+  - Progressive Web App
+  - Service Worker
+  - Local Storage
+  - IndexedDB (future)
+end note
+
+@enduml
+
+================================================================================
+                         GLOSSAIRE TECHNIQUE
+================================================================================
+
+1. TECHNOLOGIES UTILISÉES
+   - Next.js 15 : Framework React avec App Router
+   - TypeScript : Langage typé statiquement
+   - MongoDB : Base de données NoSQL
+   - Mongoose : ODM pour MongoDB
+   - NextAuth.js : Authentification
+   - Tailwind CSS : Framework CSS utility-first
+   - Recharts : Bibliothèque de graphiques
+   - Lucide React : Bibliothèque d'icônes
+
+2. PATTERNS DE CONCEPTION
+   - Repository Pattern : Séparation logique métier/données
+   - Factory Pattern : Création d'objets (Models)
+   - Middleware Pattern : Authentification et autorisation
+   - Observer Pattern : Notifications en temps réel
+   - Singleton Pattern : Connexion MongoDB
+
+3. PRINCIPES APPLIQUÉS
+   - SOLID : Principes de conception orientée objet
+   - DRY : Don't Repeat Yourself
+   - KISS : Keep It Simple, Stupid
+   - YAGNI : You Aren't Gonna Need It
+   - Separation of Concerns : Séparation des responsabilités
+
+4. SÉCURITÉ
+   - Authentification JWT avec NextAuth
+   - Hashage bcrypt pour les mots de passe
+   - RBAC (Role-Based Access Control)
+   - Validation des entrées côté serveur
+   - Protection CSRF
+   - Headers de sécurité HTTP
+   - Rate limiting sur API
+
+5. PERFORMANCE
+   - Server-Side Rendering (SSR)
+   - Static Site Generation (SSG)
+   - Code Splitting automatique
+   - Lazy Loading des composants
+   - Caching MongoDB
+   - CDN pour assets statiques
+   - Optimisation des images
+
+================================================================================
+                           FIN DU DOCUMENT
+================================================================================
+
+Document généré le : 6 Décembre 2025
+Version : 1.0
+Projet : UniManage - University Management System
+Technologies : Next.js 15, TypeScript, MongoDB
+
+Pour visualiser les diagrammes PlantUML :
+1. Copiez le code entre @startuml et @enduml
+2. Collez sur http://www.plantuml.com/plantuml/uml/
+3. Ou utilisez l'extension PlantUML dans VS Code
+
+================================================================================

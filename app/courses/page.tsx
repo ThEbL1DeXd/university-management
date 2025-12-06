@@ -10,10 +10,13 @@ import { usePermissions } from '@/hooks/usePermissions';
 import ProtectedAction from '@/components/ProtectedAction';
 
 export default function CoursesPage() {
-  const { permissions, isStudent } = usePermissions();
+  const { permissions, isStudent, can } = usePermissions();
   const [courses, setCourses] = useState<any[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Check if user can perform any action on courses
+  const canEditOrDelete = can('canEditCourse') || can('canDeleteCourse');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<any | null>(null);
   const [departments, setDepartments] = useState<any[]>([]);
@@ -37,9 +40,13 @@ export default function CoursesPage() {
   }, []);
 
   useEffect(() => {
+    const query = searchQuery.toLowerCase();
     const filtered = courses.filter((c) =>
-      c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      c.code.toLowerCase().includes(searchQuery.toLowerCase())
+      c.name?.toLowerCase().includes(query) ||
+      c.code?.toLowerCase().includes(query) ||
+      c.department?.name?.toLowerCase().includes(query) ||
+      c.department?.code?.toLowerCase().includes(query) ||
+      c.teacher?.name?.toLowerCase().includes(query)
     );
     setFilteredCourses(filtered);
   }, [searchQuery, courses]);
@@ -128,12 +135,12 @@ export default function CoursesPage() {
   };
 
   const columns = [
-    { header: 'Code', accessor: 'code' },
-    { header: 'Nom', accessor: 'name' },
-    { header: 'Crédits', accessor: 'credits' },
-    { header: 'Département', accessor: ((c: any) => c.department?.name || 'N/A') as any },
-    { header: 'Enseignant', accessor: ((c: any) => c.teacher?.name || 'Non assigné') as any },
-    { header: 'Semestre', accessor: 'semester' },
+    { header: 'Code', accessor: 'code', sortable: true },
+    { header: 'Nom', accessor: 'name', sortable: true },
+    { header: 'Crédits', accessor: 'credits', sortable: true },
+    { header: 'Département', accessor: ((c: any) => c.department?.name || 'N/A') as any, sortKey: 'department.name', sortable: true },
+    { header: 'Enseignant', accessor: ((c: any) => c.teacher?.name || 'Non assigné') as any, sortKey: 'teacher.name', sortable: true },
+    { header: 'Semestre', accessor: 'semester', sortable: true },
   ];
 
   return (
@@ -155,21 +162,23 @@ export default function CoursesPage() {
           </ProtectedAction>
         </div>
 
-        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Rechercher..." />
+        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Rechercher par nom, code, département, enseignant..." />
 
         <DataTable
           data={filteredCourses}
           columns={columns}
-          actions={(course) => (
-            <div className="flex gap-2">
-              <ProtectedAction permission="canEditCourse">
-                <button onClick={() => handleEdit(course)} className="text-blue-600"><Edit size={18} /></button>
-              </ProtectedAction>
-              <ProtectedAction permission="canDeleteCourse">
-                <button onClick={() => handleDelete(course)} className="text-red-600"><Trash2 size={18} /></button>
-              </ProtectedAction>
-            </div>
-          )}
+          {...(canEditOrDelete && {
+            actions: (course) => (
+              <div className="flex gap-2">
+                <ProtectedAction permission="canEditCourse">
+                  <button onClick={() => handleEdit(course)} className="text-blue-600"><Edit size={18} /></button>
+                </ProtectedAction>
+                <ProtectedAction permission="canDeleteCourse">
+                  <button onClick={() => handleDelete(course)} className="text-red-600"><Trash2 size={18} /></button>
+                </ProtectedAction>
+              </div>
+            )
+          })}
         />
 
         <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingCourse ? 'Modifier' : 'Ajouter'}>

@@ -1,16 +1,26 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
 import DashboardLayout from '@/components/DashboardLayout';
 import DataTable from '@/components/DataTable';
+import SearchBar from '@/components/SearchBar';
 import Modal from '@/components/Modal';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import ProtectedAction from '@/components/ProtectedAction';
 
 export default function GradesPage() {
-  const { permissions, isStudent } = usePermissions();
+  const { data: session } = useSession();
+  const { permissions, isStudent, isAdmin, isTeacher, can } = usePermissions();
   const [grades, setGrades] = useState<any[]>([]);
+  const [filteredGrades, setFilteredGrades] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [teacherCanEditGrades, setTeacherCanEditGrades] = useState(false);
+  
+  // Check if user can perform any action on grades
+  // For teachers, we need to check the canEditGrades field from the database
+  const canEditOrDelete = isAdmin || (isTeacher && teacherCanEditGrades);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingGrade, setEditingGrade] = useState<any | null>(null);
   const [students, setStudents] = useState<any[]>([]);
@@ -24,11 +34,51 @@ export default function GradesPage() {
     comments: '',
   });
 
+  // Check if the current teacher has permission to edit grades
+  const checkTeacherGradesPermission = async () => {
+    try {
+      const relatedId = (session?.user as any)?.relatedId;
+      if (!relatedId) {
+        console.log('No relatedId found');
+        return;
+      }
+      
+      const res = await fetch(`/api/teachers/${relatedId}`);
+      const data = await res.json();
+      console.log('Teacher data:', data);
+      if (data.success && data.data) {
+        setTeacherCanEditGrades(data.data.canEditGrades === true);
+      }
+    } catch (error) {
+      console.error('Error checking teacher permission:', error);
+    }
+  };
+
   useEffect(() => {
     fetchGrades();
     fetchStudents();
     fetchCourses();
   }, []);
+
+  // Check teacher permission when session is available
+  useEffect(() => {
+    if (isTeacher && session?.user) {
+      checkTeacherGradesPermission();
+    }
+  }, [isTeacher, session]);
+
+  useEffect(() => {
+    const query = searchQuery.toLowerCase();
+    const filtered = grades.filter((g) =>
+      g.student?.name?.toLowerCase().includes(query) ||
+      g.student?.matricule?.toLowerCase().includes(query) ||
+      g.course?.name?.toLowerCase().includes(query) ||
+      g.course?.code?.toLowerCase().includes(query) ||
+      g.examType?.toLowerCase().includes(query) ||
+      g.grade?.toString().includes(query)
+    );
+    setFilteredGrades(filtered);
+  }, [searchQuery, grades]);
 
   const fetchGrades = async () => {
     try {
@@ -111,13 +161,15 @@ export default function GradesPage() {
   };
 
   const columns = [
-    { header: 'Étudiant', accessor: ((g: any) => g.student?.name || 'N/A') as any },
-    { header: 'Matricule', accessor: ((g: any) => g.student?.matricule || 'N/A') as any },
-    { header: 'Cours', accessor: ((g: any) => g.course?.name || 'N/A') as any },
-    { header: 'Type', accessor: 'examType' },
+    { header: 'Étudiant', accessor: ((g: any) => g.student?.name || 'N/A') as any, sortKey: 'student.name', sortable: true },
+    { header: 'Matricule', accessor: ((g: any) => g.student?.matricule || 'N/A') as any, sortKey: 'student.matricule', sortable: true },
+    { header: 'Cours', accessor: ((g: any) => g.course?.name || 'N/A') as any, sortKey: 'course.name', sortable: true },
+    { header: 'Type', accessor: 'examType', sortable: true },
     { 
       header: 'Note', 
       accessor: ((g: any) => `${g.grade}/100`) as any,
+      sortKey: 'grade',
+      sortable: true,
       cell: (value: any, grade: any) => (
         <span className={`font-semibold ${grade.grade >= 60 ? 'text-green-600' : 'text-red-600'}`}>
           {value}
@@ -134,7 +186,7 @@ export default function GradesPage() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Notes</h1>
             <p className="text-gray-500 dark:text-gray-400 mt-1">Gérer les notes des étudiants</p>
           </div>
-          <ProtectedAction permission="canCreateGrade">
+          {canEditOrDelete && (
             <button
               onClick={() => setIsModalOpen(true)}
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -142,22 +194,30 @@ export default function GradesPage() {
               <Plus size={20} />
               Ajouter une note
             </button>
-          </ProtectedAction>
+          )}
         </div>
 
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Rechercher par étudiant, matricule, cours, type..."
+        />
+
         <DataTable
-          data={grades}
+          data={filteredGrades}
           columns={columns}
-          actions={(grade) => (
+          actions={canEditOrDelete ? (grade) => (
             <div className="flex gap-2">
-              <ProtectedAction permission="canEditGrade">
-                <button onClick={() => handleEdit(grade)} className="text-blue-600"><Edit size={18} /></button>
-              </ProtectedAction>
-              <ProtectedAction permission="canDeleteGrade">
-                <button onClick={() => handleDelete(grade)} className="text-red-600"><Trash2 size={18} /></button>
-              </ProtectedAction>
+              <button onClick={() => handleEdit(grade)} className="text-blue-600 hover:text-blue-800 p-1" title="Edit">
+                <Edit size={18} />
+              </button>
+              {isAdmin && (
+                <button onClick={() => handleDelete(grade)} className="text-red-600 hover:text-red-800 p-1" title="Delete">
+                  <Trash2 size={18} />
+                </button>
+              )}
             </div>
-          )}
+          ) : undefined}
         />
 
         <Modal isOpen={isModalOpen} onClose={handleCloseModal} title={editingGrade ? 'Modifier' : 'Ajouter'}>

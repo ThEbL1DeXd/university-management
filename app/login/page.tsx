@@ -3,7 +3,43 @@
 import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { LogIn, Mail, Lock, AlertCircle } from 'lucide-react';
+import { LogIn, Mail, Lock, AlertCircle, User, GraduationCap, Shield, Copy, Check } from 'lucide-react';
+
+// Demo accounts for easy login
+const demoAccounts = [
+  {
+    role: 'Admin',
+    email: 'admin@university.edu',
+    password: 'password123',
+    icon: Shield,
+    color: 'from-red-500 to-orange-500',
+    description: 'Accès complet'
+  },
+  {
+    role: 'Enseignant',
+    email: 'jean.dupont@university.edu',
+    password: 'password123',
+    icon: GraduationCap,
+    color: 'from-blue-500 to-cyan-500',
+    description: 'Jean Dupont - INFO'
+  },
+  {
+    role: 'Enseignant',
+    email: 'marie.lambert@university.edu',
+    password: 'password123',
+    icon: GraduationCap,
+    color: 'from-purple-500 to-pink-500',
+    description: 'Marie Lambert - INFO'
+  },
+  {
+    role: 'Étudiant',
+    email: 'alice.martin@etu.university.edu',
+    password: 'password123',
+    icon: User,
+    color: 'from-green-500 to-emerald-500',
+    description: 'Alice Martin - L1 INFO'
+  }
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,6 +47,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,9 +74,16 @@ export default function LoginPage() {
     }
   };
 
+  const fillCredentials = (account: typeof demoAccounts[0], index: number) => {
+    setEmail(account.email);
+    setPassword(account.password);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 1500);
+  };
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 px-4 py-8">
+      <div className="max-w-md w-full space-y-6">
         {/* Logo & Title */}
         <div className="text-center">
           <div className="flex justify-center">
@@ -127,17 +171,55 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+        </div>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <p className="text-xs font-semibold text-blue-900 dark:text-blue-300 mb-2">
-              Identifiants de démonstration :
+        {/* Quick Login Cards */}
+        <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-lg p-6">
+          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4 flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            Connexion rapide (cliquez pour remplir)
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            {demoAccounts.map((account, index) => {
+              const Icon = account.icon;
+              return (
+                <button
+                  key={index}
+                  onClick={() => fillCredentials(account, index)}
+                  className="group relative p-3 rounded-xl border-2 border-gray-200 dark:border-gray-700 hover:border-transparent transition-all duration-300 text-left overflow-hidden"
+                >
+                  {/* Gradient background on hover */}
+                  <div className={`absolute inset-0 bg-gradient-to-br ${account.color} opacity-0 group-hover:opacity-10 transition-opacity`}></div>
+                  
+                  <div className="relative flex items-start gap-2">
+                    <div className={`p-1.5 rounded-lg bg-gradient-to-br ${account.color} text-white flex-shrink-0`}>
+                      <Icon size={14} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-gray-900 dark:text-white truncate">
+                        {account.role}
+                      </p>
+                      <p className="text-[10px] text-gray-500 dark:text-gray-400 truncate">
+                        {account.description}
+                      </p>
+                    </div>
+                    {copiedIndex === index ? (
+                      <Check size={14} className="text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Copy size={14} className="text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          
+          {/* Password hint */}
+          <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-800 dark:text-amber-300 flex items-center gap-2">
+              <Lock size={12} />
+              <span>Mot de passe pour tous: <code className="px-1.5 py-0.5 bg-amber-200 dark:bg-amber-800 rounded font-mono font-bold">password123</code></span>
             </p>
-            <div className="text-xs text-blue-800 dark:text-blue-400 space-y-1">
-              <p>Admin: admin@university.com / admin123</p>
-              <p>Enseignant: teacher@university.com / teacher123</p>
-              <p>Étudiant: student@university.com / student123</p>
-            </div>
           </div>
         </div>
       </div>

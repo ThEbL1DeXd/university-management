@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import DashboardLayout from '@/components/DashboardLayout';
+import SearchBar from '@/components/SearchBar';
 import { Users, BookOpen, Plus, Edit, Trash2, X, Save, Building2, GraduationCap } from 'lucide-react';
 import { usePermissions } from '@/hooks/usePermissions';
 import ProtectedAction from '@/components/ProtectedAction';
@@ -43,6 +44,8 @@ interface Student {
 export default function GroupsPage() {
   const { can, isAdmin } = usePermissions();
   const [groups, setGroups] = useState<StudentGroup[]>([]);
+  const [filteredGroups, setFilteredGroups] = useState<StudentGroup[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [departments, setDepartments] = useState<Department[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
@@ -67,6 +70,18 @@ export default function GroupsPage() {
     fetchCourses();
     fetchStudents();
   }, []);
+
+  useEffect(() => {
+    const query = searchQuery.toLowerCase();
+    const filtered = groups.filter((g) =>
+      g.name?.toLowerCase().includes(query) ||
+      g.code?.toLowerCase().includes(query) ||
+      g.department?.name?.toLowerCase().includes(query) ||
+      g.level?.toLowerCase().includes(query) ||
+      g.academicYear?.toLowerCase().includes(query)
+    );
+    setFilteredGroups(filtered);
+  }, [searchQuery, groups]);
 
   const fetchGroups = async () => {
     try {
@@ -243,9 +258,16 @@ export default function GroupsPage() {
           </ProtectedAction>
         </div>
 
+        {/* Search Bar */}
+        <SearchBar
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Rechercher par nom, code, département, niveau..."
+        />
+
         {/* Groups Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {groups.map((group) => (
+          {filteredGroups.map((group) => (
             <div
               key={group._id}
               className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden hover:shadow-2xl transition-all duration-300 hover:scale-105"

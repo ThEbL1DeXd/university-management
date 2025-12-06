@@ -57,6 +57,7 @@ export const authOptions: NextAuthOptions = {
         }
 
         console.log('✅ Authentification réussie pour:', credentials.email);
+        console.log('📋 User relatedId:', user.relatedId?.toString());
 
         return {
           id: user._id.toString(),
@@ -74,6 +75,7 @@ export const authOptions: NextAuthOptions = {
         token.role = (user as any).role;
         token.id = user.id;
         token.relatedId = (user as any).relatedId;
+        console.log('🔑 JWT callback - relatedId:', (user as any).relatedId);
       }
       return token;
     },
@@ -82,6 +84,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).role = token.role as string;
         (session.user as any).id = token.id as string;
         (session.user as any).relatedId = token.relatedId as string | undefined;
+        console.log('📦 Session callback - relatedId:', token.relatedId);
       }
       return session;
     },

@@ -8,6 +8,7 @@ export interface ITeacher {
   department: mongoose.Types.ObjectId | string;
   specialization?: string;
   courses?: mongoose.Types.ObjectId[] | string[];
+  canEditGrades?: boolean; // Admin grants permission to edit grades
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -43,6 +44,10 @@ const TeacherSchema = new Schema<ITeacher>(
       type: Schema.Types.ObjectId,
       ref: 'Course',
     }],
+    canEditGrades: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

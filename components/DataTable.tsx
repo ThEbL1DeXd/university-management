@@ -1,12 +1,14 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search } from 'lucide-react';
+import { ReactNode, useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, Search, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface Column<T> {
   header: string;
   accessor: keyof T | ((item: T) => ReactNode);
   cell?: (value: any, item: T) => ReactNode;
+  sortable?: boolean; // Enable sorting for this column
+  sortKey?: string; // Custom key for nested object sorting (e.g., 'department.name')
 }
 
 interface DataTableProps<T> {
@@ -18,6 +20,13 @@ interface DataTableProps<T> {
   actions?: (item: T) => ReactNode;
 }
 
+type SortDirection = 'asc' | 'desc' | null;
+
+interface SortConfig {
+  key: string | null;
+  direction: SortDirection;
+}
+
 export default function DataTable<T extends { _id?: string }>({
   data,
   columns,
@@ -27,11 +36,93 @@ export default function DataTable<T extends { _id?: string }>({
   actions,
 }: DataTableProps<T>) {
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: null, direction: null });
 
-  const totalPages = Math.ceil(data.length / itemsPerPage);
+  // Get nested value from object using dot notation (e.g., 'department.name')
+  const getNestedValue = (obj: any, path: string): any => {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+  };
+
+  // Sort data based on current sort configuration
+  const sortedData = useMemo(() => {
+    if (!sortConfig.key || !sortConfig.direction) {
+      return data;
+    }
+
+    return [...data].sort((a, b) => {
+      let aValue = getNestedValue(a, sortConfig.key!);
+      let bValue = getNestedValue(b, sortConfig.key!);
+
+      // Handle null/undefined values
+      if (aValue == null) aValue = '';
+      if (bValue == null) bValue = '';
+
+      // Convert to lowercase for string comparison
+      if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+      if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
+      // Compare values
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [data, sortConfig]);
+
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const currentData = data.slice(startIndex, endIndex);
+  const currentData = sortedData.slice(startIndex, endIndex);
+
+  // Handle column sort
+  const handleSort = (column: Column<T>, index: number) => {
+    if (column.sortable === false) return;
+    
+    // Determine the sort key
+    let sortKey: string;
+    if (column.sortKey) {
+      sortKey = column.sortKey;
+    } else if (typeof column.accessor === 'string') {
+      sortKey = column.accessor as string;
+    } else {
+      return; // Can't sort function accessors without sortKey
+    }
+
+    setSortConfig(prev => {
+      if (prev.key === sortKey) {
+        // Cycle through: asc -> desc -> null
+        if (prev.direction === 'asc') return { key: sortKey, direction: 'desc' };
+        if (prev.direction === 'desc') return { key: null, direction: null };
+      }
+      return { key: sortKey, direction: 'asc' };
+    });
+    
+    // Reset to first page when sorting
+    setCurrentPage(1);
+  };
+
+  // Get sort icon for column
+  const getSortIcon = (column: Column<T>) => {
+    if (column.sortable === false) return null;
+    
+    let sortKey: string | null = null;
+    if (column.sortKey) {
+      sortKey = column.sortKey;
+    } else if (typeof column.accessor === 'string') {
+      sortKey = column.accessor as string;
+    }
+    
+    if (!sortKey) return null;
+
+    if (sortConfig.key === sortKey) {
+      if (sortConfig.direction === 'asc') {
+        return <ArrowUp size={14} className="text-blue-500" />;
+      }
+      if (sortConfig.direction === 'desc') {
+        return <ArrowDown size={14} className="text-blue-500" />;
+      }
+    }
+    return <ArrowUpDown size={14} className="text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />;
+  };
 
   const goToPage = (page: number) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
@@ -52,16 +143,23 @@ export default function DataTable<T extends { _id?: string }>({
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gradient-to-r from-gray-50/80 to-blue-50/30 dark:from-gray-900/80 dark:to-blue-950/30">
               <tr>
-                {columns.map((column, index) => (
-                  <th
-                    key={index}
-                    className="px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider"
-                  >
-                    <div className="flex items-center gap-2">
-                      {column.header}
-                    </div>
-                  </th>
-                ))}
+                {columns.map((column, index) => {
+                  const isSortable = column.sortable !== false && (column.sortKey || typeof column.accessor === 'string');
+                  return (
+                    <th
+                      key={index}
+                      className={`px-6 py-4 text-left text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider ${
+                        isSortable ? 'cursor-pointer select-none group hover:bg-blue-50/50 dark:hover:bg-blue-950/30 transition-colors' : ''
+                      }`}
+                      onClick={() => isSortable && handleSort(column, index)}
+                    >
+                      <div className="flex items-center gap-2">
+                        {column.header}
+                        {isSortable && getSortIcon(column)}
+                      </div>
+                    </th>
+                  );
+                })}
                 {(onEdit || onDelete || actions) && (
                   <th className="px-6 py-4 text-right text-xs font-bold text-gray-600 dark:text-gray-300 uppercase tracking-wider">
                     Actions

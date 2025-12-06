@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import dbConnect from '@/lib/dbConnect';
 import Grade from '@/models/Grade';
+import Course from '@/models/Course';
+import Student from '@/models/Student';
+import User from '@/models/User';
 import { requireAuth, requireAdminOrTeacher } from '@/lib/auth-helpers';
+import mongoose from 'mongoose';
+
+// Ensure models are registered for populate
+const _deps = [Course, Student, User];
 
 export async function GET(request: NextRequest) {
   const auth = await requireAuth(request);
@@ -42,7 +49,6 @@ export async function GET(request: NextRequest) {
         );
       }
       
-      const Course = (await import('@/models/Course')).default;
       const teacherCourses = await Course.find({ teacher: relatedId }).select('_id');
       const courseIds = teacherCourses.map(c => c._id);
       

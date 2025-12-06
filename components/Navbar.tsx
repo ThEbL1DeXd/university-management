@@ -6,6 +6,7 @@ import { Moon, Sun, Bell, Search, Settings, ChevronDown, X, BookOpen, Users, Gra
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePermissions } from '@/hooks/usePermissions';
+import NotificationDropdown from './NotificationDropdown';
 
 export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
@@ -15,7 +16,6 @@ export default function Navbar() {
   
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [greeting, setGreeting] = useState('👋 Bonjour');
@@ -53,7 +53,6 @@ export default function Navbar() {
       }
       if (e.key === 'Escape') {
         setShowSearchModal(false);
-        setShowNotifications(false);
         setShowSettings(false);
         setShowProfileMenu(false);
       }
@@ -86,13 +85,6 @@ export default function Navbar() {
     // Sinon, vérifier si l'utilisateur a la permission
     return can(item.permission);
   });
-
-  // Mock notifications
-  const notifications = [
-    { id: 1, type: 'info', title: 'Nouveau cours ajouté', message: 'Mathématiques Avancées disponible', time: '5 min', gradient: 'from-blue-500 to-cyan-500' },
-    { id: 2, type: 'warning', title: 'Notes à saisir', message: '12 étudiants en attente', time: '1 h', gradient: 'from-orange-500 to-amber-500' },
-    { id: 3, type: 'success', title: 'Paiement confirmé', message: 'Frais de scolarité reçu', time: '3 h', gradient: 'from-green-500 to-emerald-500' },
-  ];
 
   const handleSearch = (item: typeof quickSearchItems[0]) => {
     router.push(item.path);
@@ -157,70 +149,7 @@ export default function Navbar() {
           </button>
 
           {/* Notifications */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="relative p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-110 group"
-              aria-label="Notifications"
-            >
-              <Bell size={20} className="text-gray-700 dark:text-gray-300 group-hover:animate-bounce" />
-              {/* Notification Badge */}
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-br from-red-500 to-pink-600 text-white text-xs font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
-                {notifications.length}
-              </span>
-            </button>
-
-            {/* Notifications Dropdown */}
-            {showNotifications && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40" 
-                  onClick={() => setShowNotifications(false)}
-                />
-                <div className="absolute right-0 mt-2 w-80 bg-white/95 dark:bg-gray-800/95 backdrop-blur-xl rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 z-50 animate-scale-in overflow-hidden">
-                  <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                    <h3 className="text-sm font-bold text-gray-900 dark:text-white">Notifications</h3>
-                    <button 
-                      onClick={() => setShowNotifications(false)}
-                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                    >
-                      <X size={16} className="text-gray-500 dark:text-gray-400" />
-                    </button>
-                  </div>
-                  <div className="max-h-96 overflow-y-auto">
-                    {notifications.map((notif) => (
-                      <div
-                        key={notif.id}
-                        className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer border-b border-gray-100 dark:border-gray-700/50 last:border-0"
-                      >
-                        <div className="flex gap-3">
-                          <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${notif.gradient} flex items-center justify-center text-white flex-shrink-0`}>
-                            <Bell size={18} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                              {notif.title}
-                            </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                              {notif.message}
-                            </p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                              Il y a {notif.time}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-700">
-                    <button className="w-full text-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium py-1">
-                      Voir toutes les notifications
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <NotificationDropdown />
 
           {/* Settings */}
           <div className="relative">

@@ -11,6 +11,9 @@ export interface IStudent {
   enrolledCourses?: mongoose.Types.ObjectId[] | string[];
   dateOfBirth?: Date;
   address?: string;
+  academicYear: string; // Année scolaire d'inscription (ex: "2024-2025")
+  currentYear: number;  // Année d'étude actuelle (1, 2, 3, 4, 5)
+  status: 'active' | 'inactive' | 'graduated' | 'suspended'; // Statut de l'étudiant
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -59,6 +62,24 @@ const StudentSchema = new Schema<IStudent>(
     address: {
       type: String,
       trim: true,
+    },
+    academicYear: {
+      type: String,
+      required: [true, 'Academic year is required'],
+      trim: true,
+      default: '2024-2025',
+    },
+    currentYear: {
+      type: Number,
+      required: [true, 'Current year is required'],
+      min: 1,
+      max: 5,
+      default: 1,
+    },
+    status: {
+      type: String,
+      enum: ['active', 'inactive', 'graduated', 'suspended'],
+      default: 'active',
     },
   },
   {
