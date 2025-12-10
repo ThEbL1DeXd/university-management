@@ -1,0 +1,2212 @@
+================================================================================
+          CAHIER DES CHARGES - PARTIE CONCEPTION
+          Système de Gestion Universitaire (UniManage)
+================================================================================
+
+Projet : UniManage - University Management System
+Version : 2.0
+Date : 6 Décembre 2025
+Technologies : Next.js 15, TypeScript, MongoDB, NextAuth.js
+
+================================================================================
+                        TABLE DES MATIÈRES
+================================================================================
+
+1. DIAGRAMME DE CLASSES (Class Diagram)
+2. DIAGRAMME DE CAS D'UTILISATION (Use Case Diagram)
+3. DIAGRAMMES DE SÉQUENCE (Sequence Diagrams)
+   3.1. Authentification
+   3.2. Gestion des Étudiants
+   3.3. Gestion des Notes
+   3.4. Gestion des Cours
+   3.5. Gestion des Emplois du Temps
+   3.6. Gestion des Présences (NOUVEAU)
+   3.7. Système de Notifications Intelligentes (NOUVEAU)
+4. DIAGRAMME D'ACTIVITÉ
+5. DIAGRAMME DE DÉPLOIEMENT
+
+================================================================================
+              1. DIAGRAMME DE CLASSES (CLASS DIAGRAM)
+================================================================================
+
+@startuml ClassDiagram
+
+' ==================== ENTITÉS PRINCIPALES ====================
+
+class User {
+  - _id: ObjectId
+  - name: String
+  - email: String {unique}
+  - password: String {hashed}
+  - role: Enum(admin, teacher, student)
+  - relatedId: ObjectId
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + authenticate(): Boolean
+  + changePassword(): void
+  + hasPermission(permission: String): Boolean
+}
+
+class Student {
+  - _id: ObjectId
+  - name: String
+  - matricule: String {unique}
+  - email: String {unique}
+  - phone: String
+  - department: ObjectId
+  - group: ObjectId
+  - enrolledCourses: ObjectId[]
+  - dateOfBirth: Date
+  - address: String
+  - academicYear: String
+  - currentYear: Integer (1-5)
+  - status: Enum(active, inactive, graduated, suspended)
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + enrollInCourse(courseId: ObjectId): void
+  + unenrollFromCourse(courseId: ObjectId): void
+  + getGrades(): Grade[]
+  + getSchedule(): Schedule[]
+  + getAttendance(): Attendance[]
+  + updateStatus(newStatus: String): void
+}
+
+class Teacher {
+  - _id: ObjectId
+  - name: String
+  - email: String {unique}
+  - phone: String
+  - department: ObjectId
+  - specialization: String
+  - courses: ObjectId[]
+  - canEditGrades: Boolean
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + assignCourse(courseId: ObjectId): void
+  + removeFromCourse(courseId: ObjectId): void
+  + submitGrade(grade: Grade): void
+  + markAttendance(attendance: Attendance): void
+  + getStudentList(courseId: ObjectId): Student[]
+  + getSchedule(): Schedule[]
+}
+
+class Department {
+  - _id: ObjectId
+  - name: String {unique}
+  - code: String {unique}
+  - description: String
+  - head: String
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + getStudents(): Student[]
+  + getTeachers(): Teacher[]
+  + getCourses(): Course[]
+  + getStatistics(): Object
+}
+
+class Course {
+  - _id: ObjectId
+  - name: String
+  - code: String {unique}
+  - description: String
+  - credits: Integer (1-10)
+  - department: ObjectId
+  - teacher: ObjectId
+  - groups: ObjectId[]
+  - semester: Integer (1-2)
+  - year: Integer
+  - enrolledStudents: ObjectId[]
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + enrollStudent(studentId: ObjectId): void
+  + unenrollStudent(studentId: ObjectId): void
+  + assignTeacher(teacherId: ObjectId): void
+  + getEnrolledStudents(): Student[]
+  + getSchedule(): Schedule[]
+  + getAttendanceStats(): Object
+}
+
+class Grade {
+  - _id: ObjectId
+  - student: ObjectId
+  - course: ObjectId
+  - grade: Number (0-100)
+  - examType: Enum(Midterm, Final, Quiz, Assignment)
+  - comments: String
+  - submittedBy: ObjectId
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + calculateAverage(): Number
+  + getLetterGrade(): String
+  + validate(): Boolean
+}
+
+class StudentGroup {
+  - _id: ObjectId
+  - name: String
+  - code: String {unique}
+  - department: ObjectId
+  - academicYear: String
+  - level: String
+  - courses: ObjectId[]
+  - students: ObjectId[]
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + addStudent(studentId: ObjectId): void
+  + removeStudent(studentId: ObjectId): void
+  + assignCourse(courseId: ObjectId): void
+  + getSchedule(): Schedule[]
+  + getAttendanceReport(): Object
+}
+
+class Schedule {
+  - _id: ObjectId
+  - course: ObjectId
+  - teacher: ObjectId
+  - group: ObjectId
+  - dayOfWeek: Enum(monday-saturday)
+  - startTime: String (HH:MM)
+  - endTime: String (HH:MM)
+  - room: String
+  - type: Enum(cours, td, tp, examen)
+  - semester: Integer (1-2)
+  - academicYear: String
+  - isRecurring: Boolean
+  - specificDate: Date
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + checkConflict(schedule: Schedule): Boolean
+  + isAvailable(date: Date): Boolean
+  + getAttendees(): Student[]
+}
+
+' ==================== NOUVELLES ENTITÉS (V2.0) ====================
+
+class Attendance {
+  - _id: ObjectId
+  - student: ObjectId
+  - course: ObjectId
+  - group: ObjectId
+  - date: Date
+  - status: Enum(present, absent, late, excused)
+  - checkInTime: Date
+  - checkInMethod: Enum(manual, qr_code, auto)
+  - qrCodeToken: String
+  - markedBy: ObjectId
+  - notes: String
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + markPresent(): void
+  + markAbsent(): void
+  + markLate(): void
+  + markExcused(): void
+  + validateQRCode(token: String): Boolean
+  + getStatsByStudent(): Object
+  + getStatsByCourse(): Object
+}
+
+class Notification {
+  - _id: ObjectId
+  - recipient: ObjectId
+  - recipientType: Enum(student, teacher, admin)
+  - title: String
+  - message: String
+  - type: Enum(grade, schedule, announcement, reminder, alert, attendance)
+  - priority: Enum(low, medium, high)
+  - isRead: Boolean
+  - readAt: Date
+  - link: String
+  - metadata: Object
+  - expiresAt: Date
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + markAsRead(): void
+  + send(): void
+  + isExpired(): Boolean
+  + scheduleReminder(): void
+}
+
+class NotificationPreferences {
+  - _id: ObjectId
+  - userId: ObjectId
+  - emailNotifications: Boolean
+  - pushNotifications: Boolean
+  - smsNotifications: Boolean
+  - gradeAlerts: Boolean
+  - attendanceAlerts: Boolean
+  - scheduleAlerts: Boolean
+  - announcementAlerts: Boolean
+  - reminderAlerts: Boolean
+  - quietHoursStart: String (HH:MM)
+  - quietHoursEnd: String (HH:MM)
+  - language: String
+  - createdAt: Date
+  - updatedAt: Date
+  --
+  + updatePreferences(prefs: Object): void
+  + isQuietHours(): Boolean
+  + shouldNotify(type: String): Boolean
+}
+
+' ==================== RELATIONS ====================
+
+User "1" -- "0..1" Student : relatedTo >
+User "1" -- "0..1" Teacher : relatedTo >
+User "1" -- "1" NotificationPreferences : hasPreferences >
+
+Department "1" -- "0..*" Student : contains >
+Department "1" -- "0..*" Teacher : employs >
+Department "1" -- "0..*" Course : offers >
+Department "1" -- "0..*" StudentGroup : manages >
+
+Student "0..*" -- "0..*" Course : enrolledIn >
+Student "1" -- "0..*" Grade : receives >
+Student "0..*" -- "0..1" StudentGroup : belongsTo >
+Student "1" -- "0..*" Attendance : hasAttendance >
+
+Teacher "1" -- "0..*" Course : teaches >
+Teacher "1" -- "0..*" Grade : submits >
+Teacher "1" -- "0..*" Schedule : assignedTo >
+Teacher "1" -- "0..*" Attendance : marks >
+
+Course "1" -- "0..*" Grade : evaluatedBy >
+Course "1" -- "0..*" Schedule : scheduledIn >
+Course "0..*" -- "0..*" StudentGroup : assignedTo >
+Course "1" -- "0..*" Attendance : tracked >
+
+StudentGroup "1" -- "0..*" Schedule : hasSchedule >
+StudentGroup "1" -- "0..*" Attendance : groupAttendance >
+
+Notification "0..*" -- "1" Student : notifies >
+Notification "0..*" -- "1" Teacher : notifies >
+
+@enduml
+
+================================================================================
+          2. DIAGRAMMES DE CAS D'UTILISATION (USE CASE DIAGRAMS)
+================================================================================
+
+Les diagrammes de cas d'utilisation sont découpés par acteur pour une meilleure
+lisibilité et compréhension des responsabilités de chaque rôle.
+
+-------------------------------------------------------------------------------
+2.1. DIAGRAMME DE CAS D'UTILISATION - ADMINISTRATEUR
+-------------------------------------------------------------------------------
+
+@startuml UseCaseDiagram_Administrateur
+
+left to right direction
+skinparam packageStyle rectangle
+
+title Diagramme de Cas d'Utilisation - Administrateur
+
+actor Administrateur as admin #LightBlue
+
+package "Authentification" #LightYellow {
+  usecase (Se connecter) as UC_Login
+  usecase (Se déconnecter) as UC_Logout
+  usecase (Changer mot de passe) as UC_ChangePwd
+}
+
+package "Gestion des Utilisateurs" #LightGreen {
+  usecase (Créer utilisateur) as UC_CreateUser
+  usecase (Modifier utilisateur) as UC_UpdateUser
+  usecase (Supprimer utilisateur) as UC_DeleteUser
+  usecase (Lister utilisateurs) as UC_ListUsers
+}
+
+package "Gestion des Étudiants" #LightCyan {
+  usecase (Créer étudiant) as UC_CreateStudent
+  usecase (Modifier étudiant) as UC_UpdateStudent
+  usecase (Supprimer étudiant) as UC_DeleteStudent
+  usecase (Consulter étudiants) as UC_ViewStudents
+  usecase (Assigner à un groupe) as UC_AssignGroup
+  usecase (Inscrire à un cours) as UC_EnrollCourse
+}
+
+package "Gestion des Enseignants" #LightPink {
+  usecase (Créer enseignant) as UC_CreateTeacher
+  usecase (Modifier enseignant) as UC_UpdateTeacher
+  usecase (Supprimer enseignant) as UC_DeleteTeacher
+  usecase (Consulter enseignants) as UC_ViewTeachers
+  usecase (Assigner cours) as UC_AssignCourse
+}
+
+package "Gestion des Cours" #Wheat {
+  usecase (Créer cours) as UC_CreateCourse
+  usecase (Modifier cours) as UC_UpdateCourse
+  usecase (Supprimer cours) as UC_DeleteCourse
+  usecase (Consulter cours) as UC_ViewCourses
+  usecase (Gérer inscriptions) as UC_ManageEnrollments
+}
+
+package "Gestion des Départements" #Lavender {
+  usecase (Créer département) as UC_CreateDept
+  usecase (Modifier département) as UC_UpdateDept
+  usecase (Supprimer département) as UC_DeleteDept
+  usecase (Consulter départements) as UC_ViewDepts
+}
+
+package "Gestion des Notes" #MistyRose {
+  usecase (Ajouter note) as UC_AddGrade
+  usecase (Modifier note) as UC_UpdateGrade
+  usecase (Supprimer note) as UC_DeleteGrade
+  usecase (Consulter notes) as UC_ViewGrades
+}
+
+package "Gestion des Emplois du Temps" #HoneyDew {
+  usecase (Créer séance) as UC_CreateSchedule
+  usecase (Modifier séance) as UC_UpdateSchedule
+  usecase (Supprimer séance) as UC_DeleteSchedule
+  usecase (Consulter emploi du temps) as UC_ViewSchedule
+}
+
+package "Gestion des Groupes" #AliceBlue {
+  usecase (Créer groupe) as UC_CreateGroup
+  usecase (Modifier groupe) as UC_UpdateGroup
+  usecase (Supprimer groupe) as UC_DeleteGroup
+  usecase (Consulter groupes) as UC_ViewGroups
+  usecase (Affecter étudiants) as UC_AssignStudents
+}
+
+package "Gestion des Présences" <<NEW>> #PaleGreen {
+  usecase (Marquer présence) as UC_MarkAttendance
+  usecase (Consulter historique) as UC_ViewAttendanceHistory
+  usecase (Consulter statistiques) as UC_ViewAttendanceStats
+  usecase (Exporter rapport) as UC_ExportAttendance
+  usecase (Rapport global) as UC_GlobalAttendanceReport
+}
+
+package "Notifications" <<NEW>> #LemonChiffon {
+  usecase (Envoyer notification) as UC_SendNotif
+}
+
+package "Statistiques et Rapports" #Thistle {
+  usecase (Consulter dashboard) as UC_ViewDashboard
+  usecase (Générer statistiques) as UC_GenerateStats
+  usecase (Exporter données) as UC_ExportData
+}
+
+' Relations Administrateur
+admin --> UC_Login
+admin --> UC_Logout
+admin --> UC_ChangePwd
+
+admin --> UC_CreateUser
+admin --> UC_UpdateUser
+admin --> UC_DeleteUser
+admin --> UC_ListUsers
+
+admin --> UC_CreateStudent
+admin --> UC_UpdateStudent
+admin --> UC_DeleteStudent
+admin --> UC_ViewStudents
+admin --> UC_AssignGroup
+admin --> UC_EnrollCourse
+
+admin --> UC_CreateTeacher
+admin --> UC_UpdateTeacher
+admin --> UC_DeleteTeacher
+admin --> UC_ViewTeachers
+admin --> UC_AssignCourse
+
+admin --> UC_CreateCourse
+admin --> UC_UpdateCourse
+admin --> UC_DeleteCourse
+admin --> UC_ViewCourses
+admin --> UC_ManageEnrollments
+
+admin --> UC_CreateDept
+admin --> UC_UpdateDept
+admin --> UC_DeleteDept
+admin --> UC_ViewDepts
+
+admin --> UC_AddGrade
+admin --> UC_UpdateGrade
+admin --> UC_DeleteGrade
+admin --> UC_ViewGrades
+
+admin --> UC_CreateSchedule
+admin --> UC_UpdateSchedule
+admin --> UC_DeleteSchedule
+admin --> UC_ViewSchedule
+
+admin --> UC_CreateGroup
+admin --> UC_UpdateGroup
+admin --> UC_DeleteGroup
+admin --> UC_ViewGroups
+admin --> UC_AssignStudents
+
+admin --> UC_MarkAttendance
+admin --> UC_ViewAttendanceHistory
+admin --> UC_ViewAttendanceStats
+admin --> UC_ExportAttendance
+admin --> UC_GlobalAttendanceReport
+
+admin --> UC_SendNotif
+
+admin --> UC_ViewDashboard
+admin --> UC_GenerateStats
+admin --> UC_ExportData
+
+note right of admin
+  <b>Rôle : Administrateur</b>
+  ────────────────────────
+  Accès complet au système.
+  Gère tous les utilisateurs,
+  cours, départements et
+  paramètres du système.
+end note
+
+@enduml
+
+-------------------------------------------------------------------------------
+2.2. DIAGRAMME DE CAS D'UTILISATION - ENSEIGNANT
+-------------------------------------------------------------------------------
+
+@startuml UseCaseDiagram_Enseignant
+
+left to right direction
+skinparam packageStyle rectangle
+
+title Diagramme de Cas d'Utilisation - Enseignant
+
+actor Enseignant as teacher #LightGreen
+
+package "Authentification" #LightYellow {
+  usecase (Se connecter) as UC_Login
+  usecase (Se déconnecter) as UC_Logout
+  usecase (Changer mot de passe) as UC_ChangePwd
+  usecase (Consulter profil) as UC_ViewProfile
+}
+
+package "Consultation" #LightCyan {
+  usecase (Consulter étudiants) as UC_ViewStudents
+  usecase (Consulter enseignants) as UC_ViewTeachers
+  usecase (Consulter cours) as UC_ViewCourses
+  usecase (Consulter départements) as UC_ViewDepts
+  usecase (Consulter groupes) as UC_ViewGroups
+  usecase (Consulter emploi du temps) as UC_ViewSchedule
+}
+
+package "Gestion des Notes" #MistyRose {
+  usecase (Ajouter note) as UC_AddGrade
+  usecase (Modifier note) as UC_UpdateGrade
+  usecase (Supprimer note) as UC_DeleteGrade
+  usecase (Consulter notes) as UC_ViewGrades
+  usecase (Calculer moyenne) as UC_CalculateAvg
+}
+
+package "Gestion des Présences" <<NEW>> #PaleGreen {
+  usecase (Marquer présence) as UC_MarkAttendance
+  usecase (Modifier présence) as UC_UpdateAttendance
+  usecase (Consulter historique) as UC_ViewAttendanceHistory
+  usecase (Générer QR Code) as UC_GenerateQR
+  usecase (Consulter statistiques) as UC_ViewAttendanceStats
+  usecase (Exporter rapport) as UC_ExportAttendance
+}
+
+package "Notifications" <<NEW>> #LemonChiffon {
+  usecase (Consulter notifications) as UC_ViewNotifs
+  usecase (Marquer comme lu) as UC_MarkRead
+  usecase (Configurer préférences) as UC_ConfigPrefs
+}
+
+' Relations Enseignant
+teacher --> UC_Login
+teacher --> UC_Logout
+teacher --> UC_ChangePwd
+teacher --> UC_ViewProfile
+
+teacher --> UC_ViewStudents
+teacher --> UC_ViewTeachers
+teacher --> UC_ViewCourses
+teacher --> UC_ViewDepts
+teacher --> UC_ViewGroups
+teacher --> UC_ViewSchedule
+
+teacher --> UC_AddGrade
+teacher --> UC_UpdateGrade
+teacher --> UC_DeleteGrade
+teacher --> UC_ViewGrades
+teacher --> UC_CalculateAvg
+
+teacher --> UC_MarkAttendance
+teacher --> UC_UpdateAttendance
+teacher --> UC_ViewAttendanceHistory
+teacher --> UC_GenerateQR
+teacher --> UC_ViewAttendanceStats
+teacher --> UC_ExportAttendance
+
+teacher --> UC_ViewNotifs
+teacher --> UC_MarkRead
+teacher --> UC_ConfigPrefs
+
+' Relations entre cas d'utilisation
+UC_AddGrade ..> UC_CalculateAvg : <<extend>>
+UC_ViewGrades ..> UC_CalculateAvg : <<extend>>
+
+note right of teacher
+  <b>Rôle : Enseignant</b>
+  ────────────────────────
+  Gère les notes et présences
+  de ses propres cours.
+  Consulte les informations
+  du système en lecture.
+  Génère des QR codes pour
+  le pointage automatique.
+end note
+
+@enduml
+
+-------------------------------------------------------------------------------
+2.3. DIAGRAMME DE CAS D'UTILISATION - ÉTUDIANT
+-------------------------------------------------------------------------------
+
+@startuml UseCaseDiagram_Etudiant
+
+left to right direction
+skinparam packageStyle rectangle
+
+title Diagramme de Cas d'Utilisation - Étudiant
+
+actor Étudiant as student #LightPink
+
+package "Authentification" #LightYellow {
+  usecase (Se connecter) as UC_Login
+  usecase (Se déconnecter) as UC_Logout
+  usecase (Changer mot de passe) as UC_ChangePwd
+  usecase (Consulter profil) as UC_ViewProfile
+}
+
+package "Consultation Académique" #LightCyan {
+  usecase (Consulter mes cours) as UC_ViewCourses
+  usecase (Consulter mes notes) as UC_ViewGrades
+  usecase (Consulter mon emploi du temps) as UC_ViewSchedule
+}
+
+package "Gestion des Présences" <<NEW>> #PaleGreen {
+  usecase (Scanner QR Code) as UC_ScanQR
+  usecase (Consulter mon historique) as UC_ViewAttendanceHistory
+  usecase (Consulter mes statistiques) as UC_ViewAttendanceStats
+}
+
+package "Notifications" <<NEW>> #LemonChiffon {
+  usecase (Consulter notifications) as UC_ViewNotifs
+  usecase (Marquer comme lu) as UC_MarkRead
+  usecase (Configurer préférences) as UC_ConfigPrefs
+  usecase (Gérer heures silencieuses) as UC_QuietHours
+}
+
+' Relations Étudiant
+student --> UC_Login
+student --> UC_Logout
+student --> UC_ChangePwd
+student --> UC_ViewProfile
+
+student --> UC_ViewCourses
+student --> UC_ViewGrades
+student --> UC_ViewSchedule
+
+student --> UC_ScanQR
+student --> UC_ViewAttendanceHistory
+student --> UC_ViewAttendanceStats
+
+student --> UC_ViewNotifs
+student --> UC_MarkRead
+student --> UC_ConfigPrefs
+student --> UC_QuietHours
+
+note right of student
+  <b>Rôle : Étudiant</b>
+  ────────────────────────
+  Accès en lecture seule
+  à ses propres données.
+  Peut scanner les QR codes
+  pour marquer sa présence.
+  Gère ses préférences de
+  notification.
+end note
+
+@enduml
+
+-------------------------------------------------------------------------------
+2.4. DIAGRAMME DE CAS D'UTILISATION - SYSTÈME
+-------------------------------------------------------------------------------
+
+@startuml UseCaseDiagram_Systeme
+
+left to right direction
+skinparam packageStyle rectangle
+
+title Diagramme de Cas d'Utilisation - Système (Acteur Automatique)
+
+actor Système as system #LightGray
+
+package "Gestion des Sessions" #LightYellow {
+  usecase (Gérer session) as UC_ManageSession
+  usecase (Vérifier authentification) as UC_CheckAuth
+  usecase (Expirer token) as UC_ExpireToken
+}
+
+package "Gestion des Emplois du Temps" #HoneyDew {
+  usecase (Vérifier conflits) as UC_CheckConflicts
+  usecase (Détecter chevauchement) as UC_DetectOverlap
+}
+
+package "Calculs Automatiques" #Lavender {
+  usecase (Calculer moyenne) as UC_CalculateAvg
+  usecase (Calculer taux présence) as UC_CalculateAttendance
+  usecase (Générer statistiques) as UC_GenerateStats
+}
+
+package "Notifications Automatiques" <<NEW>> #LemonChiffon {
+  usecase (Envoyer notification) as UC_SendNotif
+  usecase (Alerter absences excessives) as UC_AlertAbsences
+  usecase (Notification temps réel) as UC_RealTimeNotif
+  usecase (Programmer rappel) as UC_ScheduleReminder
+  usecase (Vérifier heures silencieuses) as UC_CheckQuietHours
+}
+
+package "Gestion des Présences" <<NEW>> #PaleGreen {
+  usecase (Valider QR Code) as UC_ValidateQR
+  usecase (Expirer QR Code) as UC_ExpireQR
+  usecase (Marquer absent auto) as UC_AutoAbsent
+}
+
+' Relations Système
+system --> UC_ManageSession
+system --> UC_CheckAuth
+system --> UC_ExpireToken
+
+system --> UC_CheckConflicts
+system --> UC_DetectOverlap
+
+system --> UC_CalculateAvg
+system --> UC_CalculateAttendance
+system --> UC_GenerateStats
+
+system --> UC_SendNotif
+system --> UC_AlertAbsences
+system --> UC_RealTimeNotif
+system --> UC_ScheduleReminder
+system --> UC_CheckQuietHours
+
+system --> UC_ValidateQR
+system --> UC_ExpireQR
+system --> UC_AutoAbsent
+
+' Relations entre cas d'utilisation
+UC_CheckConflicts ..> UC_DetectOverlap : <<include>>
+UC_AlertAbsences ..> UC_SendNotif : <<include>>
+UC_ScheduleReminder ..> UC_RealTimeNotif : <<extend>>
+UC_RealTimeNotif ..> UC_CheckQuietHours : <<include>>
+UC_ValidateQR ..> UC_ExpireQR : <<extend>>
+
+note right of system
+  <b>Acteur : Système</b>
+  ────────────────────────
+  Actions automatiques
+  déclenchées par des
+  événements ou des
+  tâches planifiées.
+  Pas d'intervention
+  humaine requise.
+end note
+
+@enduml
+
+-------------------------------------------------------------------------------
+2.5. DIAGRAMME DE CAS D'UTILISATION - VUE GLOBALE (RÉSUMÉ)
+-------------------------------------------------------------------------------
+
+@startuml UseCaseDiagram_Global
+
+left to right direction
+skinparam packageStyle rectangle
+
+title Diagramme de Cas d'Utilisation - Vue Globale (Résumé)
+
+' Acteurs
+actor Administrateur as admin #LightBlue
+actor Enseignant as teacher #LightGreen
+actor Étudiant as student #LightPink
+actor Système as system #LightGray
+
+' Packages résumés
+package "Authentification" #LightYellow {
+  usecase (Se connecter) as UC_Login
+  usecase (Se déconnecter) as UC_Logout
+  usecase (Gérer profil) as UC_Profile
+}
+
+package "Gestion Administrative\n(Admin uniquement)" #LightBlue {
+  usecase (CRUD Utilisateurs) as UC_Users
+  usecase (CRUD Étudiants) as UC_Students
+  usecase (CRUD Enseignants) as UC_Teachers
+  usecase (CRUD Cours) as UC_Courses
+  usecase (CRUD Départements) as UC_Depts
+  usecase (CRUD Groupes) as UC_Groups
+  usecase (CRUD Emplois du temps) as UC_Schedules
+}
+
+package "Gestion Pédagogique" #MistyRose {
+  usecase (Gérer Notes) as UC_Grades
+  usecase (Calculer Moyennes) as UC_Avg
+}
+
+package "Gestion des Présences" <<NEW>> #PaleGreen {
+  usecase (Marquer Présences) as UC_Mark
+  usecase (QR Code) as UC_QR
+  usecase (Statistiques Présences) as UC_AttStats
+}
+
+package "Notifications" <<NEW>> #LemonChiffon {
+  usecase (Gérer Notifications) as UC_Notifs
+  usecase (Préférences) as UC_Prefs
+}
+
+package "Tableau de Bord" #Thistle {
+  usecase (Dashboard) as UC_Dashboard
+  usecase (Rapports) as UC_Reports
+}
+
+' Relations Admin
+admin --> UC_Login
+admin --> UC_Logout
+admin --> UC_Profile
+admin --> UC_Users
+admin --> UC_Students
+admin --> UC_Teachers
+admin --> UC_Courses
+admin --> UC_Depts
+admin --> UC_Groups
+admin --> UC_Schedules
+admin --> UC_Grades
+admin --> UC_Mark
+admin --> UC_AttStats
+admin --> UC_Notifs
+admin --> UC_Dashboard
+admin --> UC_Reports
+
+' Relations Teacher
+teacher --> UC_Login
+teacher --> UC_Logout
+teacher --> UC_Profile
+teacher --> UC_Grades
+teacher --> UC_Avg
+teacher --> UC_Mark
+teacher --> UC_QR
+teacher --> UC_AttStats
+teacher --> UC_Notifs
+teacher --> UC_Prefs
+
+' Relations Student
+student --> UC_Login
+student --> UC_Logout
+student --> UC_Profile
+student --> UC_QR
+student --> UC_AttStats
+student --> UC_Notifs
+student --> UC_Prefs
+
+' Relations System
+system --> UC_Avg
+system --> UC_Notifs
+
+' Légende
+legend right
+  |= Couleur |= Acteur |
+  | <#LightBlue> | Administrateur |
+  | <#LightGreen> | Enseignant |
+  | <#LightPink> | Étudiant |
+  | <#LightGray> | Système |
+  |= <<NEW>> | Nouvelles fonctionnalités V2.0 |
+endlegend
+
+@enduml
+
+================================================================================
+              3. DIAGRAMMES DE SÉQUENCE (SEQUENCE DIAGRAMS)
+================================================================================
+
+-------------------------------------------------------------------------------
+3.1. SÉQUENCE D'AUTHENTIFICATION
+-------------------------------------------------------------------------------
+
+@startuml SequenceAuthentification
+
+actor Utilisateur
+participant "Page Login" as Login
+participant "NextAuth" as Auth
+participant "API Auth" as API
+participant "MongoDB" as DB
+participant "Session" as Session
+
+Utilisateur -> Login : Accède à /login
+activate Login
+
+Utilisateur -> Login : Saisit email et mot de passe
+Login -> Auth : signIn(credentials)
+activate Auth
+
+Auth -> API : POST /api/auth/signin
+activate API
+
+API -> DB : findOne({email})
+activate DB
+DB --> API : user
+deactivate DB
+
+API -> API : comparePassword(password, hash)
+
+alt Authentification réussie
+    API -> API : Génère JWT token
+    API -> Session : Crée session
+    activate Session
+    Session --> API : session
+    deactivate Session
+    
+    API --> Auth : {success: true, token, user}
+    Auth --> Login : {status: 200, user, role}
+    
+    alt Role = Admin
+        Login -> Utilisateur : Redirige vers /dashboard (admin)
+    else Role = Teacher
+        Login -> Utilisateur : Redirige vers /dashboard (teacher)
+    else Role = Student
+        Login -> Utilisateur : Redirige vers /dashboard (student)
+    end
+    
+else Authentification échouée
+    API --> Auth : {success: false, error}
+    Auth --> Login : {status: 401, error}
+    Login -> Utilisateur : Affiche erreur
+end
+
+deactivate API
+deactivate Auth
+deactivate Login
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.2. SÉQUENCE DE CRÉATION D'UN ÉTUDIANT
+-------------------------------------------------------------------------------
+
+@startuml SequenceCreationEtudiant
+
+actor Administrateur
+participant "Page Students" as UI
+participant "Modal Form" as Modal
+participant "API Students" as API
+participant "MongoDB" as DB
+participant "User API" as UserAPI
+participant "Notification" as Notif
+
+Administrateur -> UI : Clique "Ajouter Étudiant"
+activate UI
+
+UI -> Modal : Ouvre formulaire
+activate Modal
+
+Administrateur -> Modal : Remplit informations\n(nom, matricule, email, etc.)
+Administrateur -> Modal : Sélectionne département
+Administrateur -> Modal : Clique "Créer"
+
+Modal -> Modal : Valide formulaire
+activate Modal
+
+alt Validation réussie
+    Modal -> API : POST /api/students\n{name, matricule, email, department, ...}
+    activate API
+    
+    API -> API : Vérifie authentification
+    API -> API : Vérifie permissions (Admin only)
+    
+    API -> DB : Vérifie matricule unique
+    activate DB
+    DB --> API : result
+    deactivate DB
+    
+    alt Matricule existe déjà
+        API --> Modal : {error: "Matricule exists"}
+        Modal -> Administrateur : Affiche erreur
+    else Matricule disponible
+        API -> DB : create(studentData)
+        activate DB
+        DB --> API : newStudent
+        deactivate DB
+        
+        API -> UserAPI : POST /api/users\n{email, role: "student", relatedId}
+        activate UserAPI
+        UserAPI -> DB : create(userData)
+        activate DB
+        DB --> UserAPI : newUser
+        deactivate DB
+        UserAPI --> API : user
+        deactivate UserAPI
+        
+        API -> Notif : Envoie email bienvenue
+        activate Notif
+        Notif --> API : sent
+        deactivate Notif
+        
+        API --> Modal : {success: true, student: newStudent}
+        Modal -> UI : Ferme modal
+        UI -> UI : Rafraîchit liste
+        UI -> Administrateur : Affiche succès
+    end
+else Validation échouée
+    Modal -> Administrateur : Affiche erreurs de validation
+end
+
+deactivate Modal
+deactivate API
+deactivate Modal
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.3. SÉQUENCE D'AJOUT D'UNE NOTE
+-------------------------------------------------------------------------------
+
+@startuml SequenceAjoutNote
+
+actor Enseignant
+participant "Page Grades" as UI
+participant "Modal Form" as Modal
+participant "API Grades" as API
+participant "MongoDB" as DB
+participant "Notification" as Notif
+participant "Étudiant" as Student
+
+Enseignant -> UI : Clique "Ajouter Note"
+activate UI
+
+UI -> Modal : Ouvre formulaire
+activate Modal
+
+Enseignant -> Modal : Sélectionne étudiant
+Modal -> API : GET /api/students
+activate API
+API -> DB : find({department})
+activate DB
+DB --> API : students[]
+deactivate DB
+API --> Modal : students
+deactivate API
+
+Enseignant -> Modal : Sélectionne cours
+Modal -> API : GET /api/courses
+activate API
+API -> DB : find({teacher: teacherId})
+activate DB
+DB --> API : courses[]
+deactivate DB
+API --> Modal : courses
+deactivate API
+
+Enseignant -> Modal : Saisit note (0-100)
+Enseignant -> Modal : Sélectionne type (Midterm/Final/Quiz)
+Enseignant -> Modal : Ajoute commentaire (optionnel)
+Enseignant -> Modal : Clique "Soumettre"
+
+Modal -> Modal : Valide formulaire
+
+alt Validation réussie
+    Modal -> API : POST /api/grades\n{student, course, grade, examType, comments}
+    activate API
+    
+    API -> API : Vérifie authentification
+    API -> API : Vérifie permissions\n(Admin ou Teacher)
+    
+    API -> DB : Vérifie doublon\n{student, course, examType}
+    activate DB
+    DB --> API : existingGrade
+    deactivate DB
+    
+    alt Note existe déjà
+        API --> Modal : {error: "Grade already exists"}
+        Modal -> Enseignant : Affiche erreur
+    else Pas de doublon
+        API -> DB : create(gradeData)
+        activate DB
+        DB --> API : newGrade
+        deactivate DB
+        
+        API -> Notif : Crée notification
+        activate Notif
+        Notif -> DB : create(notification)
+        activate DB
+        DB --> Notif : notification
+        deactivate DB
+        Notif -> Student : Envoie notification\n"Nouvelle note disponible"
+        deactivate Notif
+        
+        API --> Modal : {success: true, grade: newGrade}
+        Modal -> UI : Ferme modal
+        UI -> UI : Rafraîchit liste
+        UI -> Enseignant : Affiche succès
+    end
+else Validation échouée
+    Modal -> Enseignant : Affiche erreurs
+end
+
+deactivate API
+deactivate Modal
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.4. SÉQUENCE DE CONSULTATION DES COURS (ÉTUDIANT)
+-------------------------------------------------------------------------------
+
+@startuml SequenceConsultationCoursEtudiant
+
+actor Étudiant
+participant "Page Courses" as UI
+participant "API Courses" as API
+participant "MongoDB" as DB
+participant "Session" as Session
+
+Étudiant -> UI : Accède à /courses
+activate UI
+
+UI -> Session : getSession()
+activate Session
+Session --> UI : {user: {role: "student", relatedId}}
+deactivate Session
+
+UI -> API : GET /api/courses
+activate API
+
+API -> API : Vérifie authentification
+API -> Session : getSession()
+activate Session
+Session --> API : {user: {role, relatedId}}
+deactivate Session
+
+alt Role = Student
+    API -> API : Filtre: enrolledStudents = relatedId
+    API -> DB : find({enrolledStudents: studentId})\n.populate('teacher department')
+else Role = Teacher
+    API -> DB : find({teacher: teacherId})\n.populate('teacher department')
+else Role = Admin
+    API -> DB : find({})\n.populate('teacher department')
+end
+
+activate DB
+DB --> API : courses[]
+deactivate DB
+
+API -> API : Filtre données sensibles\n(pour student: masque enrolledStudents)
+API --> UI : {success: true, courses: filteredCourses}
+
+UI -> UI : Affiche liste des cours
+UI -> UI : Masque boutons\n(Ajouter/Modifier/Supprimer)
+UI -> Étudiant : Affiche interface lecture seule
+
+deactivate API
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.5. SÉQUENCE DE CRÉATION D'UN EMPLOI DU TEMPS
+-------------------------------------------------------------------------------
+
+@startuml SequenceCreationEmploiDuTemps
+
+actor Administrateur
+participant "Page Schedule" as UI
+participant "Modal Form" as Modal
+participant "API Schedule" as API
+participant "MongoDB" as DB
+participant "Conflict Checker" as Checker
+participant "Notification" as Notif
+
+Administrateur -> UI : Clique "Nouvelle Séance"
+activate UI
+
+UI -> Modal : Ouvre formulaire
+activate Modal
+
+Administrateur -> Modal : Sélectionne cours
+Administrateur -> Modal : Sélectionne enseignant
+Administrateur -> Modal : Sélectionne groupe
+Administrateur -> Modal : Sélectionne jour (Lundi-Samedi)
+Administrateur -> Modal : Définit horaire (début-fin)
+Administrateur -> Modal : Saisit salle
+Administrateur -> Modal : Sélectionne type (Cours/TD/TP)
+Administrateur -> Modal : Clique "Créer"
+
+Modal -> Modal : Valide formulaire
+Modal -> Modal : Vérifie cohérence horaires\n(début < fin)
+
+alt Validation réussie
+    Modal -> API : POST /api/schedules\n{course, teacher, group, dayOfWeek, ...}
+    activate API
+    
+    API -> API : Vérifie authentification
+    API -> API : Vérifie permissions (Admin only)
+    
+    API -> Checker : checkConflicts(scheduleData)
+    activate Checker
+    
+    Checker -> DB : Vérifie conflit enseignant\n(même jour/heure)
+    activate DB
+    DB --> Checker : teacherConflicts[]
+    deactivate DB
+    
+    Checker -> DB : Vérifie conflit groupe\n(même jour/heure)
+    activate DB
+    DB --> Checker : groupConflicts[]
+    deactivate DB
+    
+    Checker -> DB : Vérifie conflit salle\n(même jour/heure)
+    activate DB
+    DB --> Checker : roomConflicts[]
+    deactivate DB
+    
+    Checker --> API : conflicts[]
+    deactivate Checker
+    
+    alt Conflits détectés
+        API --> Modal : {error: "Conflicts detected", conflicts}
+        Modal -> Administrateur : Affiche liste conflits
+    else Pas de conflit
+        API -> DB : create(scheduleData)
+        activate DB
+        DB --> API : newSchedule
+        deactivate DB
+        
+        API -> Notif : Notifie groupe
+        activate Notif
+        Notif -> DB : getStudents(groupId)
+        activate DB
+        DB --> Notif : students[]
+        deactivate DB
+        
+        loop Pour chaque étudiant
+            Notif -> DB : create(notification)
+            activate DB
+            DB --> Notif : notif
+            deactivate DB
+        end
+        deactivate Notif
+        
+        API --> Modal : {success: true, schedule: newSchedule}
+        Modal -> UI : Ferme modal
+        UI -> UI : Rafraîchit emploi du temps
+        UI -> Administrateur : Affiche succès
+    end
+else Validation échouée
+    Modal -> Administrateur : Affiche erreurs
+end
+
+deactivate API
+deactivate Modal
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.6. SÉQUENCE DE GESTION DES PRÉSENCES (NOUVEAU)
+-------------------------------------------------------------------------------
+
+@startuml SequenceGestionPresences
+
+actor Enseignant
+participant "Page Attendance" as UI
+participant "QR Generator" as QR
+participant "API Attendance" as API
+participant "MongoDB" as DB
+participant "Notification Service" as Notif
+participant "Étudiant" as Student
+
+== Marquage Manuel de Présence ==
+
+Enseignant -> UI : Accède à /attendance
+activate UI
+
+UI -> API : GET /api/attendance/stats
+activate API
+API -> DB : aggregate(Attendance)\n[filtre par cours enseignant]
+activate DB
+DB --> API : stats
+deactivate DB
+API --> UI : {totalSessions, attendanceRate, ...}
+deactivate API
+
+UI -> UI : Affiche statistiques
+
+Enseignant -> UI : Sélectionne cours et groupe
+Enseignant -> UI : Clique "Marquer Présences"
+
+UI -> API : GET /api/students?group={groupId}
+activate API
+API -> DB : find({group: groupId})
+activate DB
+DB --> API : students[]
+deactivate DB
+API --> UI : students[]
+deactivate API
+
+UI -> Enseignant : Affiche liste étudiants
+
+loop Pour chaque étudiant
+    Enseignant -> UI : Sélectionne statut\n(Présent/Absent/Retard/Excusé)
+end
+
+Enseignant -> UI : Clique "Enregistrer"
+
+UI -> API : POST /api/attendance\n[{student, course, group, date, status}]
+activate API
+
+API -> API : Vérifie authentification
+API -> API : Vérifie permissions (Teacher/Admin)
+API -> API : Vérifie que le cours appartient à l'enseignant
+
+loop Pour chaque présence
+    API -> DB : upsert(attendanceData)
+    activate DB
+    DB --> API : attendance
+    deactivate DB
+    
+    alt Statut = Absent
+        API -> Notif : createNotification\n{type: "attendance", priority: "high"}
+        activate Notif
+        Notif -> DB : create(notification)
+        activate DB
+        DB --> Notif : notif
+        deactivate DB
+        Notif --> API : sent
+        deactivate Notif
+    end
+end
+
+API --> UI : {success: true, count: n}
+UI -> Enseignant : Affiche succès
+
+deactivate API
+deactivate UI
+
+== Marquage par QR Code ==
+
+Enseignant -> UI : Clique "Générer QR Code"
+activate UI
+
+UI -> API : POST /api/attendance/generate-qr\n{course, group, validityMinutes}
+activate API
+
+API -> API : Génère token unique (UUID + timestamp)
+API -> DB : Stocke token temporairement
+activate DB
+DB --> API : saved
+deactivate DB
+
+API --> UI : {qrToken, expiresAt}
+deactivate API
+
+UI -> QR : generateQRCode(qrToken)
+activate QR
+QR --> UI : qrCodeImage
+deactivate QR
+
+UI -> Enseignant : Affiche QR Code
+
+... Étudiant scanne le QR Code ...
+
+Student -> UI : Scanne QR Code avec téléphone
+activate UI
+
+UI -> API : POST /api/attendance/scan\n{qrToken}
+activate API
+
+API -> API : Vérifie session étudiant
+API -> DB : Vérifie validité token
+activate DB
+DB --> API : {valid: true, course, group}
+deactivate DB
+
+alt Token valide
+    API -> DB : create(attendance)\n{status: "present", checkInMethod: "qr_code"}
+    activate DB
+    DB --> API : attendance
+    deactivate DB
+    
+    API --> UI : {success: true, message: "Présence enregistrée"}
+    UI -> Student : Affiche confirmation ✓
+else Token expiré/invalide
+    API --> UI : {success: false, error: "QR Code invalide ou expiré"}
+    UI -> Student : Affiche erreur
+end
+
+deactivate API
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.7. SÉQUENCE DES NOTIFICATIONS INTELLIGENTES (NOUVEAU)
+-------------------------------------------------------------------------------
+
+@startuml SequenceNotificationsIntelligentes
+
+actor Utilisateur
+participant "Page Notifications" as UI
+participant "Notification Dropdown" as Dropdown
+participant "API Notifications" as API
+participant "MongoDB" as DB
+participant "Notification Service" as Service
+participant "Préférences" as Prefs
+
+== Configuration des Préférences ==
+
+Utilisateur -> UI : Accède à /settings/notifications
+activate UI
+
+UI -> API : GET /api/notifications/preferences
+activate API
+API -> DB : findOne({userId})
+activate DB
+DB --> API : preferences
+deactivate DB
+API --> UI : preferences
+deactivate API
+
+UI -> Utilisateur : Affiche formulaire préférences
+
+Utilisateur -> UI : Configure préférences\n(email, push, SMS, heures silencieuses)
+Utilisateur -> UI : Clique "Enregistrer"
+
+UI -> API : PUT /api/notifications/preferences\n{emailNotifications, pushNotifications, ...}
+activate API
+API -> DB : findOneAndUpdate({userId}, preferences)
+activate DB
+DB --> API : updatedPrefs
+deactivate DB
+API --> UI : {success: true}
+deactivate API
+
+UI -> Utilisateur : Affiche confirmation
+
+deactivate UI
+
+== Envoi de Notification (Système) ==
+
+participant "Événement Système" as Event
+
+Event -> Service : triggerNotification\n{type, recipient, data}
+activate Service
+
+Service -> Prefs : shouldNotify(userId, type)
+activate Prefs
+Prefs -> DB : findOne({userId})
+activate DB
+DB --> Prefs : preferences
+deactivate DB
+Prefs -> Prefs : checkQuietHours()
+Prefs -> Prefs : checkTypeEnabled(type)
+Prefs --> Service : {shouldNotify: true/false, channels: [...]}
+deactivate Prefs
+
+alt Notification autorisée
+    Service -> DB : create(notification)
+    activate DB
+    DB --> Service : notification
+    deactivate DB
+    
+    alt emailNotifications = true
+        Service -> Service : sendEmail(recipient, content)
+    end
+    
+    alt pushNotifications = true
+        Service -> Service : sendPush(recipient, content)
+    end
+    
+    alt smsNotifications = true
+        Service -> Service : sendSMS(recipient, content)
+    end
+    
+    Service --> Event : {sent: true}
+else Heures silencieuses ou type désactivé
+    Service -> DB : create(notification)\n{pending: true}
+    activate DB
+    DB --> Service : pendingNotification
+    deactivate DB
+    Service --> Event : {queued: true}
+end
+
+deactivate Service
+
+== Consultation des Notifications ==
+
+Utilisateur -> Dropdown : Clique sur icône cloche
+activate Dropdown
+
+Dropdown -> API : GET /api/notifications?limit=10&unreadOnly=true
+activate API
+API -> DB : find({recipient, isRead: false})\n.sort({createdAt: -1}).limit(10)
+activate DB
+DB --> API : notifications[]
+deactivate DB
+API --> Dropdown : {notifications, unreadCount}
+deactivate API
+
+Dropdown -> Utilisateur : Affiche liste notifications
+
+Utilisateur -> Dropdown : Clique sur notification
+Dropdown -> API : PATCH /api/notifications/{id}\n{isRead: true}
+activate API
+API -> DB : findByIdAndUpdate({isRead: true, readAt: now})
+activate DB
+DB --> API : updated
+deactivate DB
+API --> Dropdown : {success: true}
+deactivate API
+
+Dropdown -> Utilisateur : Redirige vers lien associé
+
+deactivate Dropdown
+
+== Marquer Toutes Comme Lues ==
+
+Utilisateur -> UI : Clique "Marquer tout comme lu"
+activate UI
+
+UI -> API : PATCH /api/notifications/mark-all-read
+activate API
+API -> DB : updateMany({recipient, isRead: false}, {isRead: true})
+activate DB
+DB --> API : {modifiedCount: n}
+deactivate DB
+API --> UI : {success: true, count: n}
+deactivate API
+
+UI -> UI : Rafraîchit liste
+UI -> Utilisateur : Affiche confirmation
+
+deactivate UI
+
+@enduml
+
+-------------------------------------------------------------------------------
+3.8. SÉQUENCE DE CONSULTATION DU DASHBOARD
+-------------------------------------------------------------------------------
+
+@startuml SequenceConsultationDashboard
+
+actor Utilisateur
+participant "Page Dashboard" as UI
+participant "API Stats" as API
+participant "MongoDB" as DB
+participant "Session" as Session
+participant "Charts" as Charts
+
+Utilisateur -> UI : Accède à /
+activate UI
+
+UI -> Session : getSession()
+activate Session
+Session --> UI : {user: {role, relatedId}}
+deactivate Session
+
+UI -> API : GET /api/stats
+activate API
+
+API -> API : Vérifie authentification
+API -> Session : getSession()
+activate Session
+Session --> API : {user: {role, relatedId}}
+deactivate Session
+
+alt Role = Admin
+    API -> DB : count(Student)
+    activate DB
+    DB --> API : totalStudents
+    
+    API -> DB : count(Teacher)
+    DB --> API : totalTeachers
+    
+    API -> DB : count(Course)
+    DB --> API : totalCourses
+    
+    API -> DB : count(Department)
+    DB --> API : totalDepartments
+    
+    API -> DB : aggregate(Grade)\n[{$group: {_id: null, avg: {$avg: "$grade"}}}]
+    DB --> API : averageGrade
+    
+    API -> DB : aggregate(Student)\n[{$group: {_id: "$department", count: {$sum: 1}}}]
+    DB --> API : studentsByDepartment[]
+    
+    API -> DB : aggregate(Attendance)\n[global attendance rate]
+    DB --> API : globalAttendanceRate
+    deactivate DB
+    
+    API --> UI : {globalStats: {...}, charts: {...}}
+    
+else Role = Teacher
+    API -> DB : find(Course, {teacher: teacherId})
+    activate DB
+    DB --> API : myCourses[]
+    
+    API -> DB : find(Student, {enrolledCourses: {$in: courseIds}})
+    DB --> API : myStudents[]
+    
+    API -> DB : find(Grade, {course: {$in: courseIds}})
+    DB --> API : myGrades[]
+    
+    API -> DB : aggregate(Attendance, {course: {$in: courseIds}})
+    DB --> API : myAttendanceStats
+    deactivate DB
+    
+    API --> UI : {teacherStats: {...}}
+    
+else Role = Student
+    API -> DB : find(Grade, {student: studentId})
+    activate DB
+    DB --> API : myGrades[]
+    
+    API -> DB : find(Course, {enrolledStudents: studentId})
+    DB --> API : myCourses[]
+    
+    API -> DB : find(Schedule, {group: studentGroupId})
+    DB --> API : mySchedule[]
+    
+    API -> DB : aggregate(Attendance, {student: studentId})
+    DB --> API : myAttendanceStats
+    deactivate DB
+    
+    API -> API : calculateAverage(myGrades)
+    API --> UI : {studentStats: {...}}
+end
+
+deactivate API
+
+UI -> Charts : Génère graphiques
+activate Charts
+Charts --> UI : renderedCharts
+deactivate Charts
+
+UI -> Utilisateur : Affiche dashboard personnalisé
+
+deactivate UI
+
+@enduml
+
+================================================================================
+                 4. DIAGRAMME D'ACTIVITÉ
+================================================================================
+
+-------------------------------------------------------------------------------
+4.1. PROCESSUS D'INSCRIPTION ÉTUDIANT À UN COURS
+-------------------------------------------------------------------------------
+
+@startuml ActivityDiagramInscription
+
+title Processus de Gestion d'Inscription d'un Étudiant à un Cours
+
+start
+
+:Administrateur/Enseignant se connecte;
+
+:Accède à la page des étudiants;
+
+:Sélectionne un étudiant;
+
+:Clique sur "Inscrire à un cours";
+
+:Système affiche liste des cours disponibles;
+
+if (Cours disponible?) then (oui)
+    :Sélectionne un cours;
+    
+    :Système vérifie prérequis;
+    
+    if (Prérequis satisfaits?) then (oui)
+        :Système vérifie capacité du cours;
+        
+        if (Places disponibles?) then (oui)
+            :Système crée l'inscription;
+            
+            fork
+                :Met à jour enrolledCourses\nde l'étudiant;
+            fork again
+                :Met à jour enrolledStudents\ndu cours;
+            fork again
+                :Crée notification pour l'étudiant;
+            fork again
+                :Met à jour statistiques;
+            end fork
+            
+            :Affiche message de succès;
+            
+            :Envoie email de confirmation\nà l'étudiant;
+            
+            stop
+            
+        else (non)
+            :Affiche erreur\n"Cours complet";
+            stop
+        endif
+        
+    else (non)
+        :Affiche erreur\n"Prérequis non satisfaits";
+        stop
+    endif
+    
+else (non)
+    :Affiche message\n"Aucun cours disponible";
+    stop
+endif
+
+@enduml
+
+-------------------------------------------------------------------------------
+4.2. PROCESSUS DE MARQUAGE DE PRÉSENCE (NOUVEAU)
+-------------------------------------------------------------------------------
+
+@startuml ActivityDiagramPresence
+
+title Processus de Marquage de Présence
+
+start
+
+:Enseignant accède à la page Présences;
+
+:Sélectionne Cours et Groupe;
+
+if (Mode de marquage?) then (Manuel)
+    :Système affiche liste étudiants du groupe;
+    
+    repeat
+        :Enseignant sélectionne statut\n(Présent/Absent/Retard/Excusé);
+    repeat while (Étudiants restants?) is (oui)
+    -> non;
+    
+    :Clique "Enregistrer";
+    
+else (QR Code)
+    :Enseignant génère QR Code;
+    
+    :Système crée token unique\n(valide 15 minutes);
+    
+    :Affiche QR Code à l'écran;
+    
+    fork
+        repeat
+            :Étudiant scanne QR Code;
+            
+            if (Token valide?) then (oui)
+                if (Pas encore marqué?) then (oui)
+                    :Enregistre présence\n(checkInMethod: qr_code);
+                    :Affiche confirmation ✓;
+                else (non)
+                    :Affiche "Déjà enregistré";
+                endif
+            else (non)
+                :Affiche erreur\n"QR Code expiré";
+            endif
+        repeat while (Session active?) is (oui)
+    fork again
+        :Enseignant peut fermer\nla session QR;
+    end fork
+endif
+
+:Système vérifie les absences;
+
+if (Étudiants non marqués?) then (oui)
+    :Marque automatiquement\ncomme "Absent";
+endif
+
+fork
+    :Met à jour statistiques;
+fork again
+    :Crée notifications\npour absences;
+fork again
+    :Vérifie seuil absences excessives;
+    if (Seuil dépassé?) then (oui)
+        :Alerte administration;
+    endif
+end fork
+
+:Affiche résumé de la session;
+
+stop
+
+@enduml
+
+-------------------------------------------------------------------------------
+4.3. PROCESSUS DE NOTIFICATION INTELLIGENTE (NOUVEAU)
+-------------------------------------------------------------------------------
+
+@startuml ActivityDiagramNotification
+
+title Processus de Notification Intelligente
+
+start
+
+:Événement déclencheur\n(note, absence, cours, etc.);
+
+:Service récupère destinataire;
+
+:Charge préférences utilisateur;
+
+if (Notifications activées?) then (oui)
+    
+    if (Dans heures silencieuses?) then (oui)
+        :Met notification en file d'attente;
+        :Planifie envoi après heures silencieuses;
+        stop
+    else (non)
+        :Détermine priorité\n(low/medium/high);
+        
+        if (Type notification activé?) then (oui)
+            fork
+                :Enregistre en base de données;
+            fork again
+                if (Email activé?) then (oui)
+                    :Envoie email;
+                endif
+            fork again
+                if (Push activé?) then (oui)
+                    :Envoie notification push;
+                endif
+            fork again
+                if (SMS activé et priorité haute?) then (oui)
+                    :Envoie SMS;
+                endif
+            end fork
+            
+            :Met à jour compteur non-lu;
+            
+            stop
+        else (non)
+            :Notification ignorée\n(type désactivé);
+            stop
+        endif
+    endif
+    
+else (non)
+    :Enregistre notification silencieuse\n(consultable dans l'interface);
+    stop
+endif
+
+@enduml
+
+================================================================================
+                 5. DIAGRAMME DE DÉPLOIEMENT
+================================================================================
+
+@startuml DeploymentDiagram
+
+node "Client Browser" as client {
+    component "Next.js Frontend" as frontend {
+        [React Components]
+        [Pages Router]
+        [Client State]
+        [QR Scanner Component] <<NEW>>
+        [Notification Bell] <<NEW>>
+    }
+}
+
+node "Vercel Platform" as vercel {
+    node "Edge Network" as edge {
+        [CDN]
+        [Static Assets]
+    }
+    
+    node "Serverless Functions" as functions {
+        component "Next.js Backend" as backend {
+            [API Routes]
+            [Server Components]
+            [NextAuth]
+            [Middleware]
+            [Notification Service] <<NEW>>
+            [Attendance Service] <<NEW>>
+        }
+    }
+}
+
+node "MongoDB Atlas Cluster" as mongodb {
+    database "Primary Node" as primary {
+        [university-management DB]
+        [Collections:] <<expanded>>
+        [- users]
+        [- students]
+        [- teachers]
+        [- courses]
+        [- grades]
+        [- schedules]
+        [- departments]
+        [- studentgroups]
+        [- attendance] <<NEW>>
+        [- notifications] <<NEW>>
+        [- notificationpreferences] <<NEW>>
+    }
+    
+    database "Secondary Node 1" as secondary1 {
+        [Replica]
+    }
+    
+    database "Secondary Node 2" as secondary2 {
+        [Replica]
+    }
+}
+
+node "External Services" as external {
+    [Email Service (SMTP)]
+    [Push Notification Service] <<NEW>>
+    [SMS Gateway] <<NEW>>
+    [Authentication Provider]
+    [Storage Service]
+}
+
+' Relations
+client -down-> edge : HTTPS
+client -down-> functions : API Calls (HTTPS)
+edge -down-> functions : Route Requests
+
+functions -down-> mongodb : MongoDB Protocol\n(SSL/TLS)
+functions -right-> external : API Calls
+
+primary .down.> secondary1 : Replication
+primary .down.> secondary2 : Replication
+
+note right of mongodb
+  - Cluster M10 or higher
+  - Auto-scaling enabled
+  - Automated backups
+  - Multi-region deployment
+  - New indexes for Attendance
+  - TTL index for expired tokens
+end note
+
+note right of vercel
+  - Auto-scaling
+  - Zero-downtime deployment
+  - Edge caching
+  - Environment variables
+  - Cron jobs for notifications
+end note
+
+note left of client
+  - Progressive Web App
+  - Service Worker (Push)
+  - Local Storage
+  - Camera API (QR)
+  - IndexedDB (offline)
+end note
+
+@enduml
+
+================================================================================
+                         GLOSSAIRE TECHNIQUE
+================================================================================
+
+1. TECHNOLOGIES UTILISÉES
+   - Next.js 15 : Framework React avec App Router
+   - TypeScript : Langage typé statiquement
+   - MongoDB : Base de données NoSQL
+   - Mongoose : ODM pour MongoDB
+   - NextAuth.js : Authentification
+   - Tailwind CSS : Framework CSS utility-first
+   - Recharts : Bibliothèque de graphiques
+   - Lucide React : Bibliothèque d'icônes
+   - QRCode.js : Génération de QR codes (NOUVEAU)
+   - html5-qrcode : Scanner QR codes (NOUVEAU)
+
+2. PATTERNS DE CONCEPTION
+   - Repository Pattern : Séparation logique métier/données
+   - Factory Pattern : Création d'objets (Models)
+   - Middleware Pattern : Authentification et autorisation
+   - Observer Pattern : Notifications en temps réel
+   - Singleton Pattern : Connexion MongoDB
+   - Strategy Pattern : Méthodes de pointage (NOUVEAU)
+   - Command Pattern : Actions notifications (NOUVEAU)
+
+3. PRINCIPES APPLIQUÉS
+   - SOLID : Principes de conception orientée objet
+   - DRY : Don't Repeat Yourself
+   - KISS : Keep It Simple, Stupid
+   - YAGNI : You Aren't Gonna Need It
+   - Separation of Concerns : Séparation des responsabilités
+
+4. SÉCURITÉ
+   - Authentification JWT avec NextAuth
+   - Hashage bcrypt pour les mots de passe
+   - RBAC (Role-Based Access Control)
+   - Validation des entrées côté serveur
+   - Protection CSRF
+   - Headers de sécurité HTTP
+   - Rate limiting sur API
+   - Tokens QR temporaires et signés (NOUVEAU)
+   - Validation géolocalisation optionnelle (NOUVEAU)
+
+5. PERFORMANCE
+   - Server-Side Rendering (SSR)
+   - Static Site Generation (SSG)
+   - Code Splitting automatique
+   - Lazy Loading des composants
+   - Caching MongoDB
+   - CDN pour assets statiques
+   - Optimisation des images
+   - Indexes composites pour Attendance (NOUVEAU)
+   - File d'attente notifications (NOUVEAU)
+
+6. NOUVELLES FONCTIONNALITÉS (V2.0)
+   
+   6.1. GESTION DES PRÉSENCES
+   - Marquage manuel par l'enseignant
+   - Pointage par QR Code (génération + scan)
+   - Statistiques par cours/groupe/étudiant
+   - Historique complet des présences
+   - Alertes absences excessives
+   - Export des rapports
+   - Filtrage par rôle (étudiant voit ses données, enseignant ses cours)
+   
+   6.2. NOTIFICATIONS INTELLIGENTES
+   - Notifications multi-canal (email, push, SMS)
+   - Préférences utilisateur personnalisables
+   - Heures silencieuses configurables
+   - Priorités (low, medium, high)
+   - Notifications en temps réel
+   - Historique et archivage
+   - Marquage lu/non-lu
+   - Types: grade, schedule, announcement, reminder, alert, attendance
+
+================================================================================
+                      MODÈLES DE DONNÉES (SCHEMAS)
+================================================================================
+
+-------------------------------------------------------------------------------
+ATTENDANCE SCHEMA (NOUVEAU)
+-------------------------------------------------------------------------------
+
+{
+  student: {
+    type: ObjectId,
+    ref: 'Student',
+    required: true,
+    index: true
+  },
+  course: {
+    type: ObjectId,
+    ref: 'Course',
+    required: true,
+    index: true
+  },
+  group: {
+    type: ObjectId,
+    ref: 'StudentGroup',
+    index: true
+  },
+  date: {
+    type: Date,
+    required: true,
+    index: true
+  },
+  status: {
+    type: String,
+    enum: ['present', 'absent', 'late', 'excused'],
+    default: 'absent'
+  },
+  checkInTime: Date,
+  checkInMethod: {
+    type: String,
+    enum: ['manual', 'qr_code', 'auto'],
+    default: 'manual'
+  },
+  qrCodeToken: String,
+  markedBy: {
+    type: ObjectId,
+    ref: 'User'
+  },
+  notes: String
+}
+
+Indexes:
+- { student: 1, course: 1, date: 1 } (unique)
+- { course: 1, date: 1 }
+- { group: 1, date: 1 }
+
+-------------------------------------------------------------------------------
+NOTIFICATION SCHEMA (AMÉLIORÉ)
+-------------------------------------------------------------------------------
+
+{
+  recipient: {
+    type: ObjectId,
+    required: true,
+    refPath: 'recipientModel',
+    index: true
+  },
+  recipientModel: {
+    type: String,
+    enum: ['Student', 'Teacher', 'User']
+  },
+  title: {
+    type: String,
+    required: true
+  },
+  message: {
+    type: String,
+    required: true
+  },
+  type: {
+    type: String,
+    enum: ['grade', 'schedule', 'announcement', 'reminder', 'alert', 'attendance'],
+    default: 'announcement'
+  },
+  priority: {
+    type: String,
+    enum: ['low', 'medium', 'high'],
+    default: 'medium'
+  },
+  isRead: {
+    type: Boolean,
+    default: false
+  },
+  readAt: Date,
+  link: String,
+  metadata: Schema.Types.Mixed,
+  expiresAt: Date,
+  channels: {
+    email: { sent: Boolean, sentAt: Date },
+    push: { sent: Boolean, sentAt: Date },
+    sms: { sent: Boolean, sentAt: Date }
+  }
+}
+
+Indexes:
+- { recipient: 1, isRead: 1 }
+- { expiresAt: 1 } (TTL)
+
+-------------------------------------------------------------------------------
+NOTIFICATION PREFERENCES SCHEMA (NOUVEAU)
+-------------------------------------------------------------------------------
+
+{
+  userId: {
+    type: ObjectId,
+    ref: 'User',
+    required: true,
+    unique: true
+  },
+  emailNotifications: {
+    type: Boolean,
+    default: true
+  },
+  pushNotifications: {
+    type: Boolean,
+    default: true
+  },
+  smsNotifications: {
+    type: Boolean,
+    default: false
+  },
+  gradeAlerts: {
+    type: Boolean,
+    default: true
+  },
+  attendanceAlerts: {
+    type: Boolean,
+    default: true
+  },
+  scheduleAlerts: {
+    type: Boolean,
+    default: true
+  },
+  announcementAlerts: {
+    type: Boolean,
+    default: true
+  },
+  reminderAlerts: {
+    type: Boolean,
+    default: true
+  },
+  quietHoursStart: {
+    type: String,
+    default: '22:00'
+  },
+  quietHoursEnd: {
+    type: String,
+    default: '07:00'
+  },
+  language: {
+    type: String,
+    default: 'fr'
+  }
+}
+
+================================================================================
+                      ENDPOINTS API (NOUVEAUX)
+================================================================================
+
+-------------------------------------------------------------------------------
+ATTENDANCE API
+-------------------------------------------------------------------------------
+
+GET    /api/attendance           - Liste des présences (filtrée par rôle)
+POST   /api/attendance           - Marquer présence(s)
+GET    /api/attendance/:id       - Détail d'une présence
+PUT    /api/attendance/:id       - Modifier une présence
+DELETE /api/attendance/:id       - Supprimer une présence (admin)
+GET    /api/attendance/stats     - Statistiques (filtrées par rôle)
+POST   /api/attendance/generate-qr - Générer QR code pour session
+POST   /api/attendance/scan      - Scanner et valider QR code
+GET    /api/attendance/export    - Exporter rapport CSV/PDF
+
+-------------------------------------------------------------------------------
+NOTIFICATIONS API
+-------------------------------------------------------------------------------
+
+GET    /api/notifications              - Liste notifications utilisateur
+POST   /api/notifications              - Créer notification (admin/system)
+PATCH  /api/notifications/:id          - Marquer comme lu
+DELETE /api/notifications/:id          - Supprimer notification
+PATCH  /api/notifications/mark-all-read - Tout marquer comme lu
+GET    /api/notifications/unread-count  - Nombre non-lues
+GET    /api/notifications/preferences   - Préférences utilisateur
+PUT    /api/notifications/preferences   - Mettre à jour préférences
+
+================================================================================
+                           FIN DU DOCUMENT
+================================================================================
+
+Document généré le : 6 Décembre 2025
+Version : 2.0
+Projet : UniManage - University Management System
+Technologies : Next.js 15, TypeScript, MongoDB
+
+Changements par rapport à V1.0:
+- Ajout du modèle Attendance (Gestion des Présences)
+- Ajout du modèle NotificationPreferences
+- Amélioration du modèle Notification
+- Nouveaux diagrammes de séquence (3.6, 3.7)
+- Nouveaux diagrammes d'activité (4.2, 4.3)
+- Mise à jour du diagramme de déploiement
+- Documentation des nouveaux endpoints API
+- Documentation des nouveaux schémas MongoDB
+
+Pour visualiser les diagrammes PlantUML :
+1. Copiez le code entre @startuml et @enduml
+2. Collez sur http://www.plantuml.com/plantuml/uml/
+3. Ou utilisez l'extension PlantUML dans VS Code
+
+================================================================================

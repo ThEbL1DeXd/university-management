@@ -93,13 +93,13 @@ export default function Navbar() {
   };
 
   return (
-    <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-sm border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-30">
-      <div className="px-6 py-4 flex items-center justify-between gap-4">
+    <header suppressHydrationWarning className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-sm border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-30">
+      <div suppressHydrationWarning className="px-6 py-4 flex items-center justify-between gap-4">
         {/* Left Side - Greeting & Title */}
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <div className="hidden lg:block w-1 h-12 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
-            <div>
+        <div suppressHydrationWarning className="flex-1">
+          <div suppressHydrationWarning className="flex items-center gap-3">
+            <div suppressHydrationWarning className="hidden lg:block w-1 h-12 bg-gradient-to-b from-blue-500 to-purple-600 rounded-full"></div>
+            <div suppressHydrationWarning>
               <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
                 {mounted ? `${greeting}, ${session?.user?.name?.split(' ')[0] || 'Utilisateur'} !` : 'Bienvenue !'}
               </h2>
@@ -131,7 +131,7 @@ export default function Navbar() {
             className="relative p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-110 group"
             aria-label="Toggle theme"
           >
-            <div className="relative w-5 h-5">
+            <div suppressHydrationWarning className="relative w-5 h-5">
               <Moon 
                 size={20} 
                 className={`absolute inset-0 text-gray-700 dark:text-gray-300 transition-all duration-300 ${
@@ -145,14 +145,14 @@ export default function Navbar() {
                 }`} 
               />
             </div>
-            <div className="absolute inset-0 bg-gradient-to-br from-yellow-400/0 to-orange-400/0 group-hover:from-yellow-400/10 group-hover:to-orange-400/10 rounded-xl transition-all duration-200"></div>
+            <div suppressHydrationWarning className="absolute inset-0 bg-gradient-to-br from-yellow-400/0 to-orange-400/0 group-hover:from-yellow-400/10 group-hover:to-orange-400/10 rounded-xl transition-all duration-200"></div>
           </button>
 
           {/* Notifications */}
           <NotificationDropdown />
 
           {/* Settings */}
-          <div className="relative">
+          <div suppressHydrationWarning className="relative">
             <button
               onClick={() => setShowSettings(!showSettings)}
               className="hidden lg:flex p-3 rounded-xl bg-gradient-to-br from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-110 hover:rotate-90 group"
@@ -262,13 +262,13 @@ export default function Navbar() {
           </div>
 
           {/* Profile Menu */}
-          <div className="relative">
+          <div suppressHydrationWarning className="relative">
             <button
               onClick={() => setShowProfileMenu(!showProfileMenu)}
               className="flex items-center gap-3 pl-3 pr-4 py-2 bg-gradient-to-r from-blue-500/10 to-purple-500/10 hover:from-blue-500/20 hover:to-purple-500/20 rounded-xl border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-105 group"
             >
               {/* Avatar */}
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
+              <div suppressHydrationWarning className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white font-bold shadow-lg group-hover:scale-110 transition-transform">
                 {session?.user?.name?.[0]?.toUpperCase() || 'U'}
               </div>
               <ChevronDown 

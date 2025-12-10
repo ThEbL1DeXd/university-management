@@ -4,11 +4,12 @@ import Teacher from '@/models/Teacher';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const teacher = await Teacher.findById(params.id)
+    const { id } = await params;
+    const teacher = await Teacher.findById(id)
       .populate('department', 'name code')
       .populate('courses', 'name code credits');
     
@@ -30,13 +31,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
+    const { id } = await params;
     const body = await request.json();
     const teacher = await Teacher.findByIdAndUpdate(
-      params.id,
+      id,
       body,
       { new: true, runValidators: true }
     ).populate('department', 'name code')
@@ -60,11 +62,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const teacher = await Teacher.findByIdAndDelete(params.id);
+    const { id } = await params;
+    const teacher = await Teacher.findByIdAndDelete(id);
     
     if (!teacher) {
       return NextResponse.json(

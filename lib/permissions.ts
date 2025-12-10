@@ -219,9 +219,9 @@ export function isStudent(role: UserRole): boolean {
  * Routes accessibles par rôle
  */
 export const ROLE_ROUTES: Record<UserRole, string[]> = {
-  admin: ['/', '/students', '/teachers', '/courses', '/groups', '/departments', '/grades', '/schedule'],
-  teacher: ['/', '/students', '/courses', '/groups', '/grades', '/schedule'], // Pas d'accès à /teachers ni /departments
-  student: ['/', '/courses', '/grades', '/schedule'], // Accès limité
+  admin: ['/', '/students', '/teachers', '/courses', '/groups', '/departments', '/grades', '/attendance', '/schedule'],
+  teacher: ['/', '/students', '/courses', '/groups', '/grades', '/attendance', '/schedule'], // Pas d'accès à /teachers ni /departments
+  student: ['/', '/courses', '/grades', '/attendance', '/schedule'], // Accès limité
 };
 
 /**

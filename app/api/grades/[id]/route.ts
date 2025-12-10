@@ -4,6 +4,7 @@ import Grade from '@/models/Grade';
 import Teacher from '@/models/Teacher';
 import Course from '@/models/Course';
 import { requireAuth } from '@/lib/auth-helpers';
+import { notifyNewGrade } from '@/lib/notificationService';
 
 export async function GET(
   request: NextRequest,
@@ -105,6 +106,21 @@ export async function PUT(
     ).populate('student', 'name matricule')
      .populate('course', 'name code')
      .populate('submittedBy', 'name');
+    
+    // Envoyer notification à l'étudiant sur la modification
+    if (grade) {
+      const student = grade.student as any;
+      const course = grade.course as any;
+      
+      await notifyNewGrade(
+        student._id.toString(),
+        course.name,
+        grade.grade,
+        grade.examType,
+        grade._id.toString(),
+        course._id.toString()
+      );
+    }
     
     return NextResponse.json({ success: true, data: grade });
   } catch (error: any) {

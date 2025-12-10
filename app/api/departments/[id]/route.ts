@@ -4,11 +4,12 @@ import Department from '@/models/Department';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const department = await Department.findById(params.id);
+    const { id } = await params;
+    const department = await Department.findById(id);
     
     if (!department) {
       return NextResponse.json(
@@ -28,13 +29,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
+    const { id } = await params;
     const body = await request.json();
     const department = await Department.findByIdAndUpdate(
-      params.id,
+      id,
       body,
       { new: true, runValidators: true }
     );
@@ -57,11 +59,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const department = await Department.findByIdAndDelete(params.id);
+    const { id } = await params;
+    const department = await Department.findByIdAndDelete(id);
     
     if (!department) {
       return NextResponse.json(

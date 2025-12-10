@@ -5,7 +5,7 @@ import { requireAuth, requireAdmin } from '@/lib/auth-helpers';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = await requireAuth(request);
   if (!auth.authorized) {
@@ -17,7 +17,8 @@ export async function GET(
 
   try {
     await dbConnect();
-    const student = await Student.findById(params.id)
+    const { id } = await params;
+    const student = await Student.findById(id)
       .populate('department', 'name code')
       .populate('enrolledCourses', 'name code credits');
     
@@ -39,7 +40,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Seul l'admin peut modifier des étudiants
   const auth = await requireAdmin(request);
@@ -52,9 +53,10 @@ export async function PUT(
 
   try {
     await dbConnect();
+    const { id } = await params;
     const body = await request.json();
     const student = await Student.findByIdAndUpdate(
-      params.id,
+      id,
       body,
       { new: true, runValidators: true }
     ).populate('department', 'name code')
@@ -78,7 +80,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Seul l'admin peut supprimer des étudiants
   const auth = await requireAdmin(request);
@@ -91,7 +93,8 @@ export async function DELETE(
 
   try {
     await dbConnect();
-    const student = await Student.findByIdAndDelete(params.id);
+    const { id } = await params;
+    const student = await Student.findByIdAndDelete(id);
     
     if (!student) {
       return NextResponse.json(

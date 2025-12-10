@@ -5,6 +5,7 @@ import Course from '@/models/Course';
 import Student from '@/models/Student';
 import User from '@/models/User';
 import { requireAuth, requireAdminOrTeacher } from '@/lib/auth-helpers';
+import { notifyNewGrade } from '@/lib/notificationService';
 import mongoose from 'mongoose';
 
 // Ensure models are registered for populate
@@ -98,6 +99,22 @@ export async function POST(request: NextRequest) {
       .populate('student', 'name matricule')
       .populate('course', 'name code')
       .populate('submittedBy', 'name');
+    
+    // Envoyer notification à l'étudiant
+    if (populatedGrade) {
+      const student = populatedGrade.student as any;
+      const course = populatedGrade.course as any;
+      
+      await notifyNewGrade(
+        student._id.toString(),
+        course.name,
+        populatedGrade.grade,
+        populatedGrade.examType,
+        populatedGrade._id.toString(),
+        course._id.toString()
+      );
+    }
+    
     return NextResponse.json({ success: true, data: populatedGrade }, { status: 201 });
   } catch (error: any) {
     return NextResponse.json(

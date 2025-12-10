@@ -1,5 +1,5 @@
 # 🚀 Quick Start Guide - Apply All Improvements
-
+node scripts/seed-restore.js
 ## Step 1: Import StudentGroups Collection (if not already done)
 
 Open PowerShell and run:

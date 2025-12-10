@@ -112,7 +112,7 @@ export default function NotificationDropdown() {
   };
 
   return (
-    <div className="relative">
+    <div suppressHydrationWarning className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="relative p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"

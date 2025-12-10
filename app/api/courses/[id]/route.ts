@@ -4,11 +4,12 @@ import Course from '@/models/Course';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const course = await Course.findById(params.id)
+    const { id } = await params;
+    const course = await Course.findById(id)
       .populate('department', 'name code')
       .populate('teacher', 'name email')
       .populate('enrolledStudents', 'name matricule email');
@@ -31,13 +32,14 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
+    const { id } = await params;
     const body = await request.json();
     const course = await Course.findByIdAndUpdate(
-      params.id,
+      id,
       body,
       { new: true, runValidators: true }
     ).populate('department', 'name code')
@@ -62,11 +64,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     await dbConnect();
-    const course = await Course.findByIdAndDelete(params.id);
+    const { id } = await params;
+    const course = await Course.findByIdAndDelete(id);
     
     if (!course) {
       return NextResponse.json(

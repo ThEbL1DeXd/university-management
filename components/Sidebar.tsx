@@ -15,7 +15,8 @@ import {
   X,
   UsersRound,
   Sparkles,
-  Calendar
+  Calendar,
+  UserCheck
 } from 'lucide-react';
 import { useState } from 'react';
 import { canAccessRoute, UserRole } from '@/lib/permissions';
@@ -28,6 +29,7 @@ const menuItems = [
   { name: 'Groupes', href: '/groups', icon: UsersRound },
   { name: 'Départements', href: '/departments', icon: Building2 },
   { name: 'Notes', href: '/grades', icon: ClipboardList },
+  { name: 'Présences', href: '/attendance', icon: UserCheck },
   { name: 'Emploi du temps', href: '/schedule', icon: Calendar },
 ];
 
@@ -79,6 +81,7 @@ export default function Sidebar() {
 
       {/* Sidebar */}
       <aside
+        suppressHydrationWarning
         className={`
           fixed top-0 left-0 h-full w-72 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl shadow-2xl z-40
           transition-all duration-300 ease-in-out border-r border-gray-200/50 dark:border-gray-700/50
@@ -86,7 +89,7 @@ export default function Sidebar() {
           lg:translate-x-0 lg:static
         `}
       >
-        <div className="flex flex-col h-full relative">
+        <div suppressHydrationWarning className="flex flex-col h-full relative">
           {/* Decorative gradient */}
           <div className="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
           
